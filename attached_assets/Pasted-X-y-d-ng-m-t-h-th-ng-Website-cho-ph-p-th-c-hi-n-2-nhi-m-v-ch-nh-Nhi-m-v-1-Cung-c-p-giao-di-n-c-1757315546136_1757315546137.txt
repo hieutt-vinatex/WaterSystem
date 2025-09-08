@@ -1,0 +1,85 @@
+Xây dựng một hệ thống Website cho phép thực hiện 2 nhiệm vụ chính:
+Nhiệm vụ 1: Cung cấp giao diện cho phép cán bộ phụ trách (account nhập liệu) nhập các số liệu theo các phân khu dữ liệu (Sau khi login sẽ hiển thị giao diện Dashboard là so đồ nguyên lý hệ thống nước sạch, nước thải như sơ đồ trên, mỗi khi muốn nhập dữ liệu cho phân khu nào thì click chuột vào icon sẽ hiển thị ra các giao diện nhập liệu tương ứng như dưới đây):
+	Sản lượng các giếng khoan (6 giếng), các số liệu sử dụng của Nhà máy xử lý nước sạch (Điện, PAC, Xút, Polymer).
+	Số liệu của các nhà máy Nước thải số 1, số 2 (Chỉ số nước thải theo đồng hồ đo, chỉ số nước thải đầu vào theo Trạm quan trắc, nước thải đầu ra theo Trạm quan trắc, Bùn thải, điện…).
+	Chỉ số đồng hồ nước sạch của các khách hàng (theo danh sách khách hàng được quản trị khởi tạo trước đó).
+	Chỉ số đồng hồ nước thải của một số khách hàng lớn chốt chỉ số theo ngày, còn lại chốt theo tỷ lệ % với tổng lượng nước sạch của khách hàng đó. Việc bố trí bảng biểu các chỉ số được thiết kế linh hoạt và dễ hiểu cho người nhập liệu. Các tham số tỷ lệ tiêu hao giữa nước thải so với nước sạch hoặc đơn giá tính theo m3 nước sạch, nước thải được người quản trị hệ thống cấu hình sẵn (người nhập liệu không cần thao tác này).
+Người quản trị cao nhất: có quyền setup cấu hình các tham số, danh sách khách hàng sử dụng nước sạch/ nước thải, cấu hình phân quyền
+Nhiệm vụ 2: Thiết kế Dashboard hiển thị số liệu sản lượng, chỉ số của các phân khu mỗi khi người dùng click vào từng phân khu, giao diện dạng bảng hoặc đồ thị. Có thêm chức năng cho phép export 4 mẫu báo cáo (1 báo cáo hàng ngày, 3 báo cáo tháng như đã nêu) ra các file excel hoặc pdf tương ứng.
+3.1.1. Mục tiêu nghiệp vụ
+- **Số hoá đầu vào**: Chuẩn hoá các biểu mẫu nhập dữ liệu theo ca/ngày/tháng cho NMNS, NMNT1, NMNT2 và khách hàng.
+- **Chuẩn hoá báo cáo**: Tái tạo 4 mẫu báo cáo hiện có (giữ nguyên cấu trúc & chỉ tiêu), cho phép xuất **Excel/PDF**.
+- **Dashboard điều hành**: Cung cấp màn hình tổng quan nhiều cấp (kỹ thuật → quản lý → lãnh đạo) với KPI chính và cảnh báo vượt ngưỡng.
+- **Quy trình chốt số**: Chuẩn hoá chu kỳ **25 tháng trước → 25 tháng sau**; hỗ trợ **khóa kỳ** và **phê duyệt**.
+
+3.1.2. Cấu trúc phân hệ
+1) **Danh mục & Cấu hình**
+   - Danh mục **Nhà máy**, **Giếng khoan**, **Bể chứa**, **Khách hàng**, **Đồng hồ**, **Hoá chất**, **Định mức/Kế hoạch**, **Tỷ lệ quy đổi**.
+   - Cấu hình **chu kỳ chốt**, **đơn giá**, **ngưỡng cảnh báo**, **workflow phê duyệt**.
+
+2) **Nhập liệu**
+   - **Nước sạch hàng ngày (NMNS)**: giếng khoan, tồn bể, nước thô Jasan, tự động tính NS cấp.
+ 
+ 
+ 
+   - **Tiêu hao điện & hoá chất (tháng)**: điện năng, sản lượng, nhập-xuất-tồn hoá chất.
+   - **Tổng hợp NMNT1/2 (tháng)**: NT, TQT in/out, điện, bùn, hoá chất.
+ 
+   - **Chốt số khách hàng**: chỉ số NS, NT tự động tính %.
+ 
+3) **Báo cáo & Xuất bản**
+   - **4 báo cáo chuẩn**: hàng ngày NS, tháng NMNS, tháng NMNT1, tháng NMNT2.
+   - Xuất Excel/PDF khớp mẫu.
+ 
+4) **Dashboard điều hành**
+   - Tổng quan toàn hệ thống, drill-down.
+
+3.1.3 Quy trình nghiệp vụ & Phân quyền
+
+- Chu kỳ chốt: 25 tháng trước → 25 tháng sau.
+- Giờ ghi số ~16h hàng ngày.
+- Giếng GK6 dự phòng.
+- Ràng buộc cân bằng NS cấp – DN tiêu thụ – tồn bể.
+
+**Vai trò**: Nhân viên ghi số, Trực ca NM, Kế toán, Quản lý NM, Ban lãnh đạo, Quản trị hệ thống.
+ 
+Luồng công việc: Nhập liệu → Kiểm tra tự động → Đối soát → Khoá kỳ → Xuất báo cáo.
+Quản lý người dùng cho phép admin tạo các user khác theo vai trò khác nhau trong công ty: Ban lãnh đạo, trưởng phòng, nhân viên nhập liệu, nhân viên tổng hợp báo cáo, khách hàng… được phân quyền thao tác các dữ liệu tương ứng.
+3.1.4 Thiết kế giao diện đề xuất
+
+- **Dashboard**: KPI, bản đồ hệ thống, biểu đồ NS/NT, định mức, top DN.
+ 
+- **Màn hình nhập NMNS daily**: form giếng, tồn bể, nước thô, tự tính NS cấp.
+ 
+- **Màn hình nhập NMNS monthly**: điện, PAC/Xút/Polymer, định mức.
+ 
+- **Màn hình nhập NMNT1/2 monthly**: tabs NT, TQT, điện, bùn, hoá chất.
+ 
+- **Chốt số khách hàng**: bảng DN, tỷ lệ NT, nhập nhanh Excel.
+- **Danh mục & Cấu hình**: DN, giếng, bể, đồng hồ, tỷ lệ, đơn giá, kế hoạch.
+ 
+
+3.1.5 Dashboard theo vai trò
+
+- Nhân viên: My Tasks, cảnh báo nhập thiếu.
+- Quản lý NM: KPI MTD, biểu đồ tiêu hao.
+- Kế toán: trạng thái kỳ, báo cáo xuất.
+- Ban lãnh đạo: KPI hợp nhất, top DN, dự báo…
+Với ban lãnh đạo công ty có Dashboard phân tích, tổng hợp dữ liệu theo thời gian (tháng, quý năm – có thể lựa chọn khoảng thời gian):
+	Biểu đồ Sản lượng khai thác của các giếng khoan (theo từng giếng hoặc tổng các giếng theo từng ngày).
+	Biểu đồ Sản lượng cung cấp nước sạch.
+	Biểu đồ khối lượng xử lý nước thải (đầu vào, đầu ra) từng nhà nhà máy nước thải (có thể chọn tổng hợp cả 2 nhà máy nước thải), kèm theo biểu đồ các chỉ số liên quan đến nguyên vật liệu, bùn thải tiêu hao của các nhà máy nước thải…
+	Biểu đồ thống kê lượng nước tiêu thụ theo thời gian (nước sạch, nước thải) của Khách hàng (có thể liệt kê theo từng khách hàng, hoặc lựa chọn so sánh giữa nhiều khách hàng, hoặc tất cả các khách hàng theo từng khoảng thời gian quan tâm).
+
+3.1.6 Xuất báo cáo (mapping → mẫu hiện có)
+ 
+- (R1) BC nước sạch hàng ngày: ngày, NS cấp, tồn bể, GK, nước thô Jasan.
+- (R2) BC tiêu hao điện & hoá chất NMNS.
+- (R3) BC tổng hợp NMNT1: NT, TQT, điện, bùn.
+- (R4) BC tổng hợp NMNT2: như R3 + hoá chất.
+
+3.1.7 Kiểm soát dữ liệu & nhật ký
+
+- Ràng buộc: số âm, thiếu chỉ tiêu, GK6 bất thường.
+- Đối soát: NS cấp vs DN, NT TQT in/out.
+- Nhật ký: ai, khi nào, làm gì; thu hồi trước khi khoá.
