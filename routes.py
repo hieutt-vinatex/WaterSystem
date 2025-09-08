@@ -47,7 +47,7 @@ def data_entry():
     customers = Customer.query.filter_by(is_active=True).all()
     tanks = WaterTank.query.all()
     
-    return render_template('data_entry.html', wells=wells, customers=customers, tanks=tanks)
+    return render_template('data_entry.html', wells=wells, customers=customers, tanks=tanks, date=date)
 
 @app.route('/submit-well-data', methods=['POST'])
 @login_required
