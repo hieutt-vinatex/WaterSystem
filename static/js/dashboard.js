@@ -59,13 +59,26 @@ function loadSystemDiagram() {
         .then(response => response.text())
         .then(svgContent => {
             diagramContainer.innerHTML = svgContent;
+            
+            // Set SVG to fill container
+            const svg = diagramContainer.querySelector('svg');
+            if (svg) {
+                svg.style.width = '100%';
+                svg.style.height = '100%';
+                svg.style.maxWidth = 'none';
+                svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                svg.setAttribute('viewBox', svg.getAttribute('viewBox') || '0 0 800 600');
+            }
+            
             makeSystemDiagramInteractive();
+            setupDiagramZoom();
             systemDiagramLoaded = true;
         })
         .catch(error => {
             console.error('Error loading system diagram:', error);
             diagramContainer.innerHTML = createFallbackDiagram();
             makeSystemDiagramInteractive();
+            setupDiagramZoom();
         });
 }
 
@@ -260,10 +273,47 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
+// Diagram zoom functions
+let currentZoom = 1;
+
+function zoomDiagram() {
+    currentZoom = Math.min(currentZoom * 1.2, 3);
+    const container = document.getElementById('water-system-svg');
+    if (container) {
+        container.style.transform = `scale(${currentZoom})`;
+    }
+}
+
+function resetDiagramZoom() {
+    currentZoom = 1;
+    const container = document.getElementById('water-system-svg');
+    if (container) {
+        container.style.transform = 'scale(1)';
+    }
+}
+
+// Mouse wheel zoom for diagram
+function setupDiagramZoom() {
+    const container = document.getElementById('system-diagram');
+    if (container) {
+        container.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            currentZoom = Math.max(0.5, Math.min(currentZoom * delta, 3));
+            const svgContainer = document.getElementById('water-system-svg');
+            if (svgContainer) {
+                svgContainer.style.transform = `scale(${currentZoom})`;
+            }
+        });
+    }
+}
+
 // Export functions for use in other scripts
 window.dashboardUtils = {
     loadKPIData,
     loadSystemDiagram,
     formatNumber,
-    handleZoneClick
+    handleZoneClick,
+    zoomDiagram,
+    resetDiagramZoom
 };

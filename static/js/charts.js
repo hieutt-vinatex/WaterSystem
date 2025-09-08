@@ -65,7 +65,8 @@ function createWellProductionChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             plugins: {
                 title: {
                     display: false
@@ -124,7 +125,8 @@ function createCleanWaterChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             plugins: {
                 title: {
                     display: false
@@ -191,7 +193,8 @@ function createWastewaterChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             plugins: {
                 title: {
                     display: false
@@ -263,7 +266,8 @@ function createCustomerChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             plugins: {
                 title: {
                     display: false
@@ -328,7 +332,8 @@ function createTrendChart(canvasId, data, label, type = 'line') {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             plugins: {
                 title: {
                     display: true,

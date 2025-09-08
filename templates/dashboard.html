@@ -88,14 +88,23 @@
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
-                <h5><i class="fas fa-sitemap me-2"></i>Sơ đồ Hệ thống Cấp Thoát Nước</h5>
-                <small class="text-muted">Click vào các khu vực để nhập dữ liệu</small>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h5><i class="fas fa-sitemap me-2"></i>Sơ đồ Hệ thống Cấp Thoát Nước</h5>
+                    <small class="text-muted">Click vào các khu vực để nhập dữ liệu</small>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="zoomDiagram()">
+                        <i class="fas fa-search-plus"></i> Phóng to
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="resetDiagramZoom()">
+                        <i class="fas fa-compress"></i> Thu nhỏ
+                    </button>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="system-diagram" id="system-diagram">
-                    <!-- Water System Diagram will be loaded here -->
-                    <div id="water-system-svg"></div>
+            <div class="card-body p-2" style="min-height: 650px; max-height: 650px; overflow: auto; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="system-diagram w-100 h-100 d-flex justify-content-center align-items-center" id="system-diagram">
+                    <div id="water-system-svg" style="width: 100%; height: 100%; transform-origin: center; transition: transform 0.3s ease;"></div>
                 </div>
             </div>
         </div>
@@ -157,8 +166,8 @@
                     </ul>
                 </div>
             </div>
-            <div class="card-body">
-                <canvas id="wellProductionChart" height="200"></canvas>
+            <div class="card-body" style="height: 300px;">
+                <canvas id="wellProductionChart"></canvas>
                 <small class="text-muted">Đơn vị: m³/ngày. Hiển thị tổng sản lượng 5 giếng hoạt động (GK1, GK2, GK3, GK5, GK5-TT)</small>
             </div>
         </div>
@@ -177,8 +186,8 @@
                     </ul>
                 </div>
             </div>
-            <div class="card-body">
-                <canvas id="cleanWaterChart" height="200"></canvas>
+            <div class="card-body" style="height: 300px;">
+                <canvas id="cleanWaterChart"></canvas>
                 <small class="text-muted">Đơn vị: m³/ngày. Bao gồm nước từ giếng khoan + nước thô Jasan</small>
             </div>
         </div>
@@ -203,8 +212,8 @@
                     </ul>
                 </div>
             </div>
-            <div class="card-body">
-                <canvas id="wastewaterChart" height="200"></canvas>
+            <div class="card-body" style="height: 300px;">
+                <canvas id="wastewaterChart"></canvas>
                 <small class="text-muted">Đơn vị: m³/ngày. NMNT1: 12,000 m³/ngày, NMNT2: 8,000 m³/ngày</small>
             </div>
         </div>
@@ -225,8 +234,8 @@
                     </ul>
                 </div>
             </div>
-            <div class="card-body">
-                <canvas id="customerChart" height="200"></canvas>
+            <div class="card-body" style="height: 300px;">
+                <canvas id="customerChart"></canvas>
                 <small class="text-muted">Tổng tiêu thụ 50 khách hàng. Nước thải tính theo tỷ lệ hoặc đồng hồ trực tiếp</small>
             </div>
         </div>
