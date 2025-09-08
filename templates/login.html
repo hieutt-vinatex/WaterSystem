@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Đăng nhập - Hệ thống quản lý nước Phố Nối{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card">
+            <div class="card-header text-center">
+                <h4><i class="fas fa-tint text-primary me-2"></i>Đăng nhập</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Tên đăng nhập</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Mật khẩu</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Đăng nhập
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Account Info -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle me-2"></i>Tài khoản demo</h6>
+            </div>
+            <div class="card-body">
+                <small class="text-muted">
+                    <strong>Admin:</strong> admin / admin123<br>
+                    <strong>Lãnh đạo:</strong> leadership / leader123<br>
+                    <strong>Quản lý:</strong> plant_manager / manager123<br>
+                    <strong>Kế toán:</strong> accounting / accounting123<br>
+                    <strong>Nhập liệu:</strong> data_entry / entry123
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

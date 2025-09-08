@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block title %}Nhập liệu - Hệ thống quản lý nước Phố Nối{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-edit text-primary me-2"></i>Nhập liệu sản xuất</h1>
+        <p class="text-muted">Nhập dữ liệu sản xuất và vận hành hàng ngày</p>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<ul class="nav nav-tabs mb-4" id="dataEntryTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="wells-tab" data-bs-toggle="tab" data-bs-target="#wells" type="button" role="tab">
+            <i class="fas fa-water me-2"></i>Giếng khoan
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="clean-water-tab" data-bs-toggle="tab" data-bs-target="#clean-water" type="button" role="tab">
+            <i class="fas fa-tint me-2"></i>Nhà máy nước sạch
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="wastewater-tab" data-bs-toggle="tab" data-bs-target="#wastewater" type="button" role="tab">
+            <i class="fas fa-recycle me-2"></i>Nhà máy nước thải
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="customers-tab" data-bs-toggle="tab" data-bs-target="#customers" type="button" role="tab">
+            <i class="fas fa-users me-2"></i>Khách hàng
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="dataEntryTabsContent">
+    <!-- Wells Tab -->
+    <div class="tab-pane fade show active" id="wells" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-water me-2"></i>Sản lượng giếng khoan</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('submit_well_data') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="well-date" class="form-label">Ngày</label>
+                            <input type="date" class="form-control" id="well-date" name="date" value="{{ date.today() }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        {% for well in wells %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card {% if well.is_backup %}border-warning{% endif %}">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        {{ well.name }} ({{ well.code }})
+                                        {% if well.is_backup %}
+                                        <span class="badge bg-warning">Dự phòng</span>
+                                        {% endif %}
+                                    </h6>
+                                    <div class="mb-2">
+                                        <label class="form-label">Sản lượng (m³)</label>
+                                        <input type="number" class="form-control" name="production_{{ well.id }}" 
+                                               step="0.1" min="0" {% if well.is_backup %}value="0" readonly{% endif %}>
+                                        <input type="hidden" name="well_ids" value="{{ well.id }}">
+                                    </div>
+                                    <small class="text-muted">Công suất: {{ well.capacity }} m³/ngày</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Lưu dữ liệu giếng
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Clean Water Plant Tab -->
+    <div class="tab-pane fade" id="clean-water" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-tint me-2"></i>Nhà máy xử lý nước sạch</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('submit_clean_water_plant') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="clean-water-date" class="form-label">Ngày</label>
+                            <input type="date" class="form-control" id="clean-water-date" name="date" value="{{ date.today() }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6>Tiêu hao điện và hóa chất</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Điện tiêu thụ (kWh)</label>
+                                        <input type="number" class="form-control" name="electricity" step="0.1" min="0">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">PAC (kg)</label>
+                                        <input type="number" class="form-control" name="pac_usage" step="0.1" min="0">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Xút (kg)</label>
+                                        <input type="number" class="form-control" name="naoh_usage" step="0.1" min="0">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Polymer (kg)</label>
+                                        <input type="number" class="form-control" name="polymer_usage" step="0.1" min="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6>Sản lượng nước</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nước sạch sản xuất (m³)</label>
+                                        <input type="number" class="form-control" name="clean_water_output" step="0.1" min="0">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Nước thô Jasan (m³)</label>
+                                        <input type="number" class="form-control" name="raw_water_jasan" step="0.1" min="0">
+                                        <small class="text-muted">Nước mua từ bên ngoài</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Lưu dữ liệu nhà máy nước sạch
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Wastewater Plant Tab -->
+    <div class="tab-pane fade" id="wastewater" role="tabpanel">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-recycle me-2"></i>Nhà máy nước thải số 1</h5>
+                        <small class="text-muted">Công suất: 12,000 m³/ngày</small>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="{{ url_for('submit_wastewater_plant') }}">
+                            <input type="hidden" name="plant_number" value="1">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Ngày</label>
+                                <input type="date" class="form-control" name="date" value="{{ date.today() }}" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Nước thải theo đồng hồ (m³)</label>
+                                <input type="number" class="form-control" name="wastewater_meter" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Nước thải đầu vào TQT (m³)</label>
+                                <input type="number" class="form-control" name="input_flow_tqt" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Nước thải đầu ra TQT (m³)</label>
+                                <input type="number" class="form-control" name="output_flow_tqt" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Bùn thải (m³)</label>
+                                <input type="number" class="form-control" name="sludge_output" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Điện tiêu thụ (kWh)</label>
+                                <input type="number" class="form-control" name="electricity" step="0.1" min="0">
+                            </div>
+                            
+                            <input type="hidden" name="chemical_usage" value="0">
+                            
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Lưu NMNT1
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-recycle me-2"></i>Nhà máy nước thải số 2</h5>
+                        <small class="text-muted">Công suất: 8,000 m³/ngày</small>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="{{ url_for('submit_wastewater_plant') }}">
+                            <input type="hidden" name="plant_number" value="2">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Ngày</label>
+                                <input type="date" class="form-control" name="date" value="{{ date.today() }}" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Nước thải theo đồng hồ (m³)</label>
+                                <input type="number" class="form-control" name="wastewater_meter" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Nước thải đầu vào TQT (m³)</label>
+                                <input type="number" class="form-control" name="input_flow_tqt" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Nước thải đầu ra TQT (m³)</label>
+                                <input type="number" class="form-control" name="output_flow_tqt" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Bùn thải (m³)</label>
+                                <input type="number" class="form-control" name="sludge_output" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Điện tiêu thụ (kWh)</label>
+                                <input type="number" class="form-control" name="electricity" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Hóa chất sử dụng (kg)</label>
+                                <input type="number" class="form-control" name="chemical_usage" step="0.1" min="0">
+                            </div>
+                            
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Lưu NMNT2
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Customers Tab -->
+    <div class="tab-pane fade" id="customers" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users me-2"></i>Chỉ số khách hàng</h5>
+                <small class="text-muted">Chốt số từ ngày 25 tháng trước đến 25 tháng sau</small>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('submit_customer_readings') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="customer-date" class="form-label">Ngày chốt</label>
+                            <input type="date" class="form-control" id="customer-date" name="date" value="{{ date.today() }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Tìm kiếm khách hàng</label>
+                            <input type="text" class="form-control" id="customer-search" placeholder="Tên công ty...">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Lọc theo loại</label>
+                            <select class="form-select" id="customer-filter">
+                                <option value="">Tất cả</option>
+                                <option value="daily">Đọc số hàng ngày</option>
+                                <option value="monthly">Đọc số hàng tháng</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Khách hàng</th>
+                                    <th>Loại</th>
+                                    <th>Tỷ lệ NT/NS</th>
+                                    <th>Chỉ số nước sạch (m³)</th>
+                                    <th>Chỉ số nước thải (m³)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customer-table-body">
+                                {% for customer in customers %}
+                                <tr class="customer-row" data-daily="{{ customer.daily_reading|lower }}">
+                                    <td>
+                                        <strong>{{ customer.company_name }}</strong><br>
+                                        <small class="text-muted">{{ customer.contact_person }}</small>
+                                        <input type="hidden" name="customer_ids" value="{{ customer.id }}">
+                                    </td>
+                                    <td>
+                                        {% if customer.daily_reading %}
+                                        <span class="badge bg-warning">Hàng ngày</span>
+                                        {% else %}
+                                        <span class="badge bg-info">Hàng tháng</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ "%.2f"|format(customer.water_ratio) }}</td>
+                                    <td>
+                                        <input type="number" class="form-control" name="clean_water_{{ customer.id }}" 
+                                               step="0.1" min="0" placeholder="Chỉ số NS">
+                                    </td>
+                                    <td>
+                                        {% if customer.daily_reading %}
+                                        <input type="number" class="form-control" name="wastewater_{{ customer.id }}" 
+                                               step="0.1" min="0" placeholder="Chỉ số NT (tùy chọn)">
+                                        <small class="text-muted">Để trống sẽ tự tính</small>
+                                        {% else %}
+                                        <input type="text" class="form-control" value="Tự động tính: {{ "%.2f"|format(customer.water_ratio) }}x NS" readonly>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="text-end mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Lưu chỉ số khách hàng
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Customer search and filter functionality
+document.getElementById('customer-search').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('.customer-row');
+    
+    rows.forEach(row => {
+        const companyName = row.cells[0].textContent.toLowerCase();
+        if (companyName.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+document.getElementById('customer-filter').addEventListener('change', function() {
+    const filterValue = this.value;
+    const rows = document.querySelectorAll('.customer-row');
+    
+    rows.forEach(row => {
+        if (filterValue === '') {
+            row.style.display = '';
+        } else if (filterValue === 'daily' && row.dataset.daily === 'true') {
+            row.style.display = '';
+        } else if (filterValue === 'monthly' && row.dataset.daily === 'false') {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Set today's date for all date inputs
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        if (!input.value) {
+            input.value = today;
+        }
+    });
+});
+</script>
+{% endblock %}

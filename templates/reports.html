@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Báo cáo - Hệ thống quản lý nước Phố Nối{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-file-alt text-primary me-2"></i>Báo cáo</h1>
+        <p class="text-muted">Tạo và xuất các báo cáo theo quy định</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Daily Clean Water Report -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-calendar-day me-2"></i>Báo cáo nước sạch hàng ngày</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Báo cáo sản lượng giếng khoan và nhà máy nước sạch theo ngày</p>
+                
+                <form id="daily-report-form">
+                    <div class="mb-3">
+                        <label class="form-label">Từ ngày</label>
+                        <input type="date" class="form-control" id="daily-start-date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Đến ngày</label>
+                        <input type="date" class="form-control" id="daily-end-date" required>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-success" onclick="generateReport('daily_clean_water', 'excel')">
+                            <i class="fas fa-file-excel me-2"></i>Xuất Excel
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="generateReport('daily_clean_water', 'pdf')">
+                            <i class="fas fa-file-pdf me-2"></i>Xuất PDF
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monthly Clean Water Report -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-calendar-alt me-2"></i>Báo cáo tiêu hao điện & hóa chất NMNS</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Báo cáo hàng tháng về tiêu hao điện và hóa chất của nhà máy nước sạch</p>
+                
+                <form id="monthly-clean-water-form">
+                    <div class="mb-3">
+                        <label class="form-label">Từ ngày</label>
+                        <input type="date" class="form-control" id="monthly-clean-start-date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Đến ngày</label>
+                        <input type="date" class="form-control" id="monthly-clean-end-date" required>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-success" onclick="generateReport('monthly_clean_water', 'excel')">
+                            <i class="fas fa-file-excel me-2"></i>Xuất Excel
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="generateReport('monthly_clean_water', 'pdf')">
+                            <i class="fas fa-file-pdf me-2"></i>Xuất PDF
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monthly Wastewater Plant 1 Report -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-recycle me-2"></i>Báo cáo tổng hợp NMNT số 1</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Báo cáo hàng tháng về bùn, điện, nước của nhà máy nước thải số 1</p>
+                
+                <form id="monthly-wastewater1-form">
+                    <div class="mb-3">
+                        <label class="form-label">Từ ngày</label>
+                        <input type="date" class="form-control" id="monthly-ww1-start-date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Đến ngày</label>
+                        <input type="date" class="form-control" id="monthly-ww1-end-date" required>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-success" onclick="generateReport('monthly_wastewater_1', 'excel')">
+                            <i class="fas fa-file-excel me-2"></i>Xuất Excel
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="generateReport('monthly_wastewater_1', 'pdf')">
+                            <i class="fas fa-file-pdf me-2"></i>Xuất PDF
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monthly Wastewater Plant 2 Report -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-recycle me-2"></i>Báo cáo tổng hợp NMNT số 2</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Báo cáo hàng tháng về bùn, điện, nước, hóa chất của nhà máy nước thải số 2</p>
+                
+                <form id="monthly-wastewater2-form">
+                    <div class="mb-3">
+                        <label class="form-label">Từ ngày</label>
+                        <input type="date" class="form-control" id="monthly-ww2-start-date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Đến ngày</label>
+                        <input type="date" class="form-control" id="monthly-ww2-end-date" required>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-success" onclick="generateReport('monthly_wastewater_2', 'excel')">
+                            <i class="fas fa-file-excel me-2"></i>Xuất Excel
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="generateReport('monthly_wastewater_2', 'pdf')">
+                            <i class="fas fa-file-pdf me-2"></i>Xuất PDF
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Date Selection -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-clock me-2"></i>Lựa chọn nhanh</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100" onclick="setDateRange('today')">
+                            Hôm nay
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100" onclick="setDateRange('week')">
+                            7 ngày qua
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100" onclick="setDateRange('month')">
+                            30 ngày qua
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100" onclick="setDateRange('quarter')">
+                            3 tháng qua
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Status -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle me-2"></i>Trạng thái báo cáo</h6>
+            </div>
+            <div class="card-body">
+                <div id="report-status" class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Sẵn sàng tạo báo cáo. Chọn loại báo cáo và khoảng thời gian.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function setDateRange(period) {
+    const today = new Date();
+    let startDate = new Date();
+    
+    switch(period) {
+        case 'today':
+            startDate = today;
+            break;
+        case 'week':
+            startDate.setDate(today.getDate() - 7);
+            break;
+        case 'month':
+            startDate.setDate(today.getDate() - 30);
+            break;
+        case 'quarter':
+            startDate.setMonth(today.getMonth() - 3);
+            break;
+    }
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = today.toISOString().split('T')[0];
+    
+    // Set dates for all forms
+    const dateInputs = [
+        'daily-start-date', 'daily-end-date',
+        'monthly-clean-start-date', 'monthly-clean-end-date',
+        'monthly-ww1-start-date', 'monthly-ww1-end-date',
+        'monthly-ww2-start-date', 'monthly-ww2-end-date'
+    ];
+    
+    dateInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            if (id.includes('start')) {
+                input.value = startDateStr;
+            } else {
+                input.value = endDateStr;
+            }
+        }
+    });
+    
+    updateReportStatus(`Đã chọn khoảng thời gian: ${startDateStr} đến ${endDateStr}`, 'success');
+}
+
+function generateReport(reportType, format) {
+    let startDate, endDate;
+    
+    // Get date range based on report type
+    switch(reportType) {
+        case 'daily_clean_water':
+            startDate = document.getElementById('daily-start-date').value;
+            endDate = document.getElementById('daily-end-date').value;
+            break;
+        case 'monthly_clean_water':
+            startDate = document.getElementById('monthly-clean-start-date').value;
+            endDate = document.getElementById('monthly-clean-end-date').value;
+            break;
+        case 'monthly_wastewater_1':
+            startDate = document.getElementById('monthly-ww1-start-date').value;
+            endDate = document.getElementById('monthly-ww1-end-date').value;
+            break;
+        case 'monthly_wastewater_2':
+            startDate = document.getElementById('monthly-ww2-start-date').value;
+            endDate = document.getElementById('monthly-ww2-end-date').value;
+            break;
+    }
+    
+    if (!startDate || !endDate) {
+        updateReportStatus('Vui lòng chọn ngày bắt đầu và kết thúc', 'danger');
+        return;
+    }
+    
+    if (new Date(startDate) > new Date(endDate)) {
+        updateReportStatus('Ngày bắt đầu không thể sau ngày kết thúc', 'danger');
+        return;
+    }
+    
+    updateReportStatus(`Đang tạo báo cáo ${reportType} định dạng ${format.toUpperCase()}...`, 'warning');
+    
+    // Create download URL
+    const url = `/generate-report/${reportType}?start_date=${startDate}&end_date=${endDate}&format=${format}`;
+    
+    // Download file
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${reportType}_${startDate}_${endDate}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    updateReportStatus(`Báo cáo đã được tạo và tải xuống thành công`, 'success');
+}
+
+function updateReportStatus(message, type) {
+    const statusDiv = document.getElementById('report-status');
+    statusDiv.className = `alert alert-${type}`;
+    
+    let icon = 'info-circle';
+    if (type === 'success') icon = 'check-circle';
+    else if (type === 'danger') icon = 'exclamation-triangle';
+    else if (type === 'warning') icon = 'clock';
+    
+    statusDiv.innerHTML = `<i class="fas fa-${icon} me-2"></i>${message}`;
+}
+
+// Set default dates on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setDateRange('month'); // Default to last 30 days
+});
+</script>
+{% endblock %}

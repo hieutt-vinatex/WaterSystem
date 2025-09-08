@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Hệ thống quản lý nước Phố Nối{% endblock %}
+
+{% block extra_head %}
+<style>
+    .system-diagram {
+        background: var(--bs-secondary);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        min-height: 400px;
+        position: relative;
+    }
+    .diagram-zone {
+        position: absolute;
+        background: var(--bs-primary);
+        color: white;
+        border-radius: 8px;
+        padding: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+        font-size: 12px;
+    }
+    .diagram-zone:hover {
+        background: var(--bs-info);
+        transform: scale(1.05);
+    }
+    .kpi-card {
+        transition: transform 0.2s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-chart-line text-primary me-2"></i>Dashboard Hệ thống Cấp Thoát Nước</h1>
+        <p class="text-muted">Chào mừng {{ current_user.full_name or current_user.username }} - {{ current_user.role.value.replace('_', ' ').title() }}</p>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row mb-4" id="kpi-section">
+    <div class="col-md-3">
+        <div class="card kpi-card bg-primary">
+            <div class="card-body text-center text-white">
+                <i class="fas fa-water fa-2x mb-2"></i>
+                <h4 id="today-well-production">0</h4>
+                <p class="mb-0">Sản lượng giếng hôm nay (m³)</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-info">
+            <div class="card-body text-center text-white">
+                <i class="fas fa-tint fa-2x mb-2"></i>
+                <h4 id="today-clean-water">0</h4>
+                <p class="mb-0">Nước sạch hôm nay (m³)</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-warning">
+            <div class="card-body text-center text-white">
+                <i class="fas fa-recycle fa-2x mb-2"></i>
+                <h4 id="today-wastewater">0</h4>
+                <p class="mb-0">Nước thải xử lý hôm nay (m³)</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-success">
+            <div class="card-body text-center text-white">
+                <i class="fas fa-users fa-2x mb-2"></i>
+                <h4 id="active-customers">0</h4>
+                <p class="mb-0">Khách hàng hoạt động</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Diagram -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-sitemap me-2"></i>Sơ đồ Hệ thống Cấp Thoát Nước</h5>
+                <small class="text-muted">Click vào các khu vực để nhập dữ liệu</small>
+            </div>
+            <div class="card-body">
+                <div class="system-diagram" id="system-diagram">
+                    <!-- Water System Diagram will be loaded here -->
+                    <div id="water-system-svg"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+{% if current_user.role.value in ['leadership', 'plant_manager', 'admin'] %}
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-area me-2"></i>Sản lượng giếng khoan (30 ngày)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="wellProductionChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-line me-2"></i>Nước sạch sản xuất (30 ngày)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="cleanWaterChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-bar me-2"></i>Xử lý nước thải (30 ngày)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="wastewaterChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-pie me-2"></i>Tiêu thụ khách hàng (30 ngày)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="customerChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+{% if current_user.role.value in ['data_entry', 'plant_manager', 'admin'] %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-tasks me-2"></i>Thao tác nhanh</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{{ url_for('data_entry') }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-edit me-2"></i>Nhập liệu hôm nay
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('data_entry') }}#wells" class="btn btn-outline-info w-100">
+                            <i class="fas fa-water me-2"></i>Sản lượng giếng
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('data_entry') }}#customers" class="btn btn-outline-warning w-100">
+                            <i class="fas fa-users me-2"></i>Chỉ số khách hàng
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('reports') }}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-file-alt me-2"></i>Tạo báo cáo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadKPIData();
+    loadSystemDiagram();
+    
+    {% if current_user.role.value in ['leadership', 'plant_manager', 'admin'] %}
+    loadDashboardCharts();
+    {% endif %}
+});
+</script>
+{% endblock %}

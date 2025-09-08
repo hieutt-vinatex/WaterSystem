@@ -1,0 +1,39 @@
+THÔNG TIN TÀI KHOẢN HỆ THỐNG QUẢN LÝ NƯỚC PHỐ NỐI
+============================================================
+
+Vai trò: Quản trị hệ thống
+Tên đăng nhập: admin
+Mật khẩu: admin123
+Quyền hạn: Toàn quyền hệ thống, quản lý người dùng, cấu hình
+--------------------------------------------------
+
+Vai trò: Ban lãnh đạo
+Tên đăng nhập: leadership
+Mật khẩu: leader123
+Quyền hạn: Xem dashboard tổng quan, báo cáo phân tích
+--------------------------------------------------
+
+Vai trò: Quản lý nhà máy
+Tên đăng nhập: plant_manager
+Mật khẩu: manager123
+Quyền hạn: Nhập liệu, xem KPI, quản lý vận hành
+--------------------------------------------------
+
+Vai trò: Kế toán
+Tên đăng nhập: accounting
+Mật khẩu: accounting123
+Quyền hạn: Tạo báo cáo, xuất Excel/PDF, khóa kỳ
+--------------------------------------------------
+
+Vai trò: Nhân viên nhập liệu
+Tên đăng nhập: data_entry
+Mật khẩu: entry123
+Quyền hạn: Nhập dữ liệu sản xuất, chỉ số khách hàng
+--------------------------------------------------
+
+THÔNG TIN HỆ THỐNG:
+- Địa chỉ truy cập: http://localhost:5000
+- Hệ thống có 50 khách hàng mẫu
+- Dữ liệu sản xuất từ 01/01/2024 đến hiện tại
+- Chu kỳ chốt số: từ ngày 25 tháng trước đến 25 tháng sau
+- Hỗ trợ xuất báo cáo Excel và PDF

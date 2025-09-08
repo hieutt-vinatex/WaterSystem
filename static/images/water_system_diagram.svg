@@ -1,0 +1,176 @@
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .zone { cursor: pointer; transition: all 0.3s ease; }
+      .zone:hover { opacity: 0.8; transform: scale(1.02); }
+      .zone-text { font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; text-anchor: middle; }
+      .flow-line { stroke: #2563eb; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+      .pipe { stroke: #6b7280; stroke-width: 4; fill: none; }
+      
+      /* Zone colors */
+      .wells-zone { fill: #3b82f6; }
+      .clean-plant-zone { fill: #06b6d4; }
+      .tanks-zone { fill: #6b7280; }
+      .customers-zone { fill: #10b981; }
+      .wastewater1-zone { fill: #f59e0b; }
+      .wastewater2-zone { fill: #ef4444; }
+    </style>
+    
+    <!-- Arrow marker for flow lines -->
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb" />
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="600" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+  
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#1f2937">
+    SƠ ĐỒ HỆ THỐNG CẤP THOÁT NƯỚC PHỐ NỐI
+  </text>
+  
+  <!-- Wells Section (Left) -->
+  <g class="zone wells-zone" data-zone="wells">
+    <rect x="50" y="80" width="120" height="180" rx="10" class="wells-zone"/>
+    <text x="110" y="105" class="zone-text" fill="white">GIẾNG KHOAN</text>
+    <text x="110" y="125" class="zone-text" fill="white" font-size="10">(6 giếng)</text>
+    
+    <!-- Individual wells -->
+    <circle cx="80" cy="150" r="8" fill="white"/>
+    <text x="80" y="155" text-anchor="middle" font-size="8" fill="#3b82f6">GK1</text>
+    
+    <circle cx="110" cy="150" r="8" fill="white"/>
+    <text x="110" y="155" text-anchor="middle" font-size="8" fill="#3b82f6">GK2</text>
+    
+    <circle cx="140" cy="150" r="8" fill="white"/>
+    <text x="140" y="155" text-anchor="middle" font-size="8" fill="#3b82f6">GK3</text>
+    
+    <circle cx="80" cy="180" r="8" fill="white"/>
+    <text x="80" y="185" text-anchor="middle" font-size="8" fill="#3b82f6">GK5</text>
+    
+    <circle cx="110" cy="180" r="8" fill="white"/>
+    <text x="110" y="185" text-anchor="middle" font-size="8" fill="#3b82f6">5-TT</text>
+    
+    <circle cx="140" cy="180" r="8" fill="#fbbf24"/>
+    <text x="140" y="185" text-anchor="middle" font-size="8" fill="#92400e">GK6</text>
+    
+    <text x="110" y="210" class="zone-text" fill="white" font-size="10">Công suất:</text>
+    <text x="110" y="225" class="zone-text" fill="white" font-size="10">2,000 m³/ngày</text>
+    <text x="110" y="240" class="zone-text" fill="white" font-size="10">mỗi giếng</text>
+  </g>
+  
+  <!-- Clean Water Plant (Center-Left) -->
+  <g class="zone clean-plant-zone" data-zone="clean-water-plant">
+    <rect x="220" y="80" width="140" height="120" rx="10" class="clean-plant-zone"/>
+    <text x="290" y="105" class="zone-text" fill="white">NHÀ MÁY</text>
+    <text x="290" y="120" class="zone-text" fill="white">NƯỚC SẠCH</text>
+    <text x="290" y="140" class="zone-text" fill="white" font-size="10">Công suất:</text>
+    <text x="290" y="155" class="zone-text" fill="white" font-size="10">12,000 m³/ngày</text>
+    <text x="290" y="175" class="zone-text" fill="white" font-size="10">Điện, PAC, Xút</text>
+    <text x="290" y="190" class="zone-text" fill="white" font-size="10">Polymer</text>
+  </g>
+  
+  <!-- Water Tanks (Center) -->
+  <g class="zone tanks-zone" data-zone="tanks">
+    <rect x="220" y="240" width="140" height="100" rx="10" class="tanks-zone"/>
+    <text x="290" y="265" class="zone-text" fill="white">BỂ CHỨA</text>
+    <text x="290" y="285" class="zone-text" fill="white" font-size="10">Bể 1200 m³</text>
+    <text x="290" y="300" class="zone-text" fill="white" font-size="10">Bể 2000 m³</text>
+    <text x="290" y="315" class="zone-text" fill="white" font-size="10">Bể 4000 m³</text>
+  </g>
+  
+  <!-- Customers (Right) -->
+  <g class="zone customers-zone" data-zone="customers">
+    <rect x="420" y="120" width="140" height="160" rx="10" class="customers-zone"/>
+    <text x="490" y="145" class="zone-text" fill="white">KHÁCH HÀNG</text>
+    <text x="490" y="165" class="zone-text" fill="white" font-size="10">50 công ty</text>
+    <text x="490" y="185" class="zone-text" fill="white" font-size="10">Đồng hồ NS/NT</text>
+    
+    <!-- Major customers -->
+    <rect x="435" y="200" width="110" height="15" rx="3" fill="#dcfce7"/>
+    <text x="490" y="210" text-anchor="middle" font-size="8" fill="#166534">Jasan (hàng ngày)</text>
+    
+    <rect x="435" y="220" width="110" height="15" rx="3" fill="#dcfce7"/>
+    <text x="490" y="230" text-anchor="middle" font-size="8" fill="#166534">Nhuộm HY</text>
+    
+    <rect x="435" y="240" width="110" height="15" rx="3" fill="#dcfce7"/>
+    <text x="490" y="250" text-anchor="middle" font-size="8" fill="#166534">46 công ty khác</text>
+  </g>
+  
+  <!-- Wastewater Plant 1 (Bottom-Left) -->
+  <g class="zone wastewater1-zone" data-zone="wastewater-plant-1">
+    <rect x="120" y="420" width="140" height="120" rx="10" class="wastewater1-zone"/>
+    <text x="190" y="445" class="zone-text" fill="white">NHÀ MÁY</text>
+    <text x="190" y="460" class="zone-text" fill="white">NƯỚC THẢI 1</text>
+    <text x="190" y="480" class="zone-text" fill="white" font-size="10">Công suất:</text>
+    <text x="190" y="495" class="zone-text" fill="white" font-size="10">12,000 m³/ngày</text>
+    <text x="190" y="515" class="zone-text" fill="white" font-size="10">TQT, Bùn, Điện</text>
+  </g>
+  
+  <!-- Wastewater Plant 2 (Bottom-Right) -->
+  <g class="zone wastewater2-zone" data-zone="wastewater-plant-2">
+    <rect x="420" y="420" width="140" height="120" rx="10" class="wastewater2-zone"/>
+    <text x="490" y="445" class="zone-text" fill="white">NHÀ MÁY</text>
+    <text x="490" y="460" class="zone-text" fill="white">NƯỚC THẢI 2</text>
+    <text x="490" y="480" class="zone-text" fill="white" font-size="10">Công suất:</text>
+    <text x="490" y="495" class="zone-text" fill="white" font-size="10">8,000 m³/ngày</text>
+    <text x="490" y="515" class="zone-text" fill="white" font-size="10">TQT, Bùn, Điện</text>
+    <text x="490" y="530" class="zone-text" fill="white" font-size="10">Hóa chất</text>
+  </g>
+  
+  <!-- External Water Supply -->
+  <rect x="220" y="50" width="80" height="20" rx="5" fill="#fbbf24"/>
+  <text x="260" y="63" text-anchor="middle" font-size="10" fill="#92400e">Jasan 800-1000m³</text>
+  
+  <!-- Flow Lines -->
+  <!-- Wells to Clean Water Plant -->
+  <line x1="170" y1="170" x2="220" y2="140" class="flow-line"/>
+  
+  <!-- Clean Water Plant to Tanks -->
+  <line x1="290" y1="200" x2="290" y2="240" class="flow-line"/>
+  
+  <!-- External water to plant -->
+  <line x1="260" y1="70" x2="290" y2="80" class="flow-line"/>
+  
+  <!-- Tanks to Customers -->
+  <line x1="360" y1="280" x2="420" y2="200" class="flow-line"/>
+  
+  <!-- Customers to Wastewater Plants -->
+  <line x1="450" y1="280" x2="220" y2="420" class="flow-line"/>
+  <line x1="510" y1="280" x2="490" y2="420" class="flow-line"/>
+  
+  <!-- Pipes (decorative) -->
+  <line x1="170" y1="160" x2="220" y2="130" class="pipe"/>
+  <line x1="360" y1="290" x2="420" y2="210" class="pipe"/>
+  
+  <!-- Legend -->
+  <g transform="translate(600, 80)">
+    <rect x="0" y="0" width="180" height="200" fill="white" stroke="#e2e8f0" stroke-width="1" rx="5"/>
+    <text x="90" y="20" text-anchor="middle" font-size="12" font-weight="bold" fill="#1f2937">CHÚ THÍCH</text>
+    
+    <circle cx="15" cy="40" r="5" class="wells-zone"/>
+    <text x="30" y="45" font-size="10" fill="#1f2937">Giếng khoan</text>
+    
+    <circle cx="15" cy="60" r="5" class="clean-plant-zone"/>
+    <text x="30" y="65" font-size="10" fill="#1f2937">Nhà máy nước sạch</text>
+    
+    <circle cx="15" cy="80" r="5" class="tanks-zone"/>
+    <text x="30" y="85" font-size="10" fill="#1f2937">Bể chứa</text>
+    
+    <circle cx="15" cy="100" r="5" class="customers-zone"/>
+    <text x="30" y="105" font-size="10" fill="#1f2937">Khách hàng</text>
+    
+    <circle cx="15" cy="120" r="5" class="wastewater1-zone"/>
+    <text x="30" y="125" font-size="10" fill="#1f2937">NMNT số 1</text>
+    
+    <circle cx="15" cy="140" r="5" class="wastewater2-zone"/>
+    <text x="30" y="145" font-size="10" fill="#1f2937">NMNT số 2</text>
+    
+    <line x1="15" y1="165" x2="35" y2="165" class="flow-line"/>
+    <text x="40" y="169" font-size="10" fill="#1f2937">Dòng chảy</text>
+    
+    <text x="90" y="190" text-anchor="middle" font-size="9" fill="#6b7280">Click vào khu vực</text>
+    <text x="90" y="202" text-anchor="middle" font-size="9" fill="#6b7280">để nhập dữ liệu</text>
+  </g>
+</svg>
