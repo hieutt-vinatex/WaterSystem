@@ -271,9 +271,16 @@ def dashboard_data():
     """API endpoint for dashboard charts data"""
     try:
         # Get date range from request
-        days = int(request.args.get('days', 30))
-        end_date = date.today()
-        start_date = end_date - timedelta(days=days)
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        if start_date_str and end_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        else:
+            days = int(request.args.get('days', 30))
+            end_date = date.today()
+            start_date = end_date - timedelta(days=days)
         
         # Well production data
         well_data = db.session.query(
