@@ -331,6 +331,147 @@ def dashboard_data():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/chart-details/<chart_type>')
+@login_required
+def chart_details(chart_type):
+    """Chart details page"""
+    if not check_permissions(current_user.role, ['leadership', 'plant_manager', 'admin']):
+        flash('You do not have permission to access this page', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Chart type configurations
+    chart_configs = {
+        'wells': {
+            'name': 'Sản lượng Giếng khoan',
+            'description': 'Theo dõi sản lượng hàng ngày từ 5 giếng khoan hoạt động',
+            'icon': 'fa-water'
+        },
+        'clean-water': {
+            'name': 'Sản lượng Nhà máy Nước sạch',
+            'description': 'Sản lượng nước sạch từ giếng khoan và nước thô Jasan',
+            'icon': 'fa-tint'
+        },
+        'wastewater': {
+            'name': 'Lưu lượng Nước thải',
+            'description': 'Lưu lượng xử lý tại 2 nhà máy nước thải',
+            'icon': 'fa-recycle'
+        },
+        'customers': {
+            'name': 'Tiêu thụ Khách hàng',
+            'description': 'Theo dõi tiêu thụ nước sạch và phát sinh nước thải của 50 khách hàng',
+            'icon': 'fa-users'
+        }
+    }
+    
+    config = chart_configs.get(chart_type)
+    if not config:
+        flash('Invalid chart type', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('chart_details.html', 
+                         chart_type=chart_type,
+                         chart_type_name=config['name'],
+                         chart_description=config['description'],
+                         chart_icon=config['icon'])
+
+@app.route('/api/chart-details/<chart_type>')
+@login_required
+def api_chart_details(chart_type):
+    """API endpoint for detailed chart data"""
+    try:
+        # Get date range
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        if start_date_str and end_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        else:
+            days = int(request.args.get('days', 30))
+            end_date = date.today()
+            start_date = end_date - timedelta(days=days)
+        
+        if chart_type == 'wells':
+            return get_wells_detail_data(start_date, end_date)
+        elif chart_type == 'clean-water':
+            return get_clean_water_detail_data(start_date, end_date)
+        elif chart_type == 'wastewater':
+            return get_wastewater_detail_data(start_date, end_date)
+        elif chart_type == 'customers':
+            return get_customers_detail_data(start_date, end_date)
+        else:
+            return jsonify({'error': 'Invalid chart type'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def get_customers_detail_data(start_date, end_date):
+    """Get detailed customer consumption data"""
+    # Customer consumption data - fixed to show actual data instead of zeros
+    customer_data = db.session.query(
+        CustomerReading.date,
+        func.sum(CustomerReading.clean_water_usage).label('clean_water'),
+        func.sum(CustomerReading.wastewater_discharge).label('wastewater')
+    ).filter(
+        CustomerReading.date >= start_date,
+        CustomerReading.date <= end_date
+    ).group_by(CustomerReading.date).order_by(CustomerReading.date).all()
+    
+    # Prepare chart data
+    labels = [item.date.strftime('%d/%m') for item in customer_data]
+    clean_water_values = [float(item.clean_water or 0) for item in customer_data]
+    wastewater_values = [float(item.wastewater or 0) for item in customer_data]
+    
+    chart_data = {
+        'labels': labels,
+        'datasets': [
+            {
+                'label': 'Nước sạch tiêu thụ (m³)',
+                'data': clean_water_values,
+                'borderColor': 'rgb(54, 162, 235)',
+                'backgroundColor': 'rgba(54, 162, 235, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'Nước thải phát sinh (m³)',
+                'data': wastewater_values,
+                'borderColor': 'rgb(255, 206, 86)',
+                'backgroundColor': 'rgba(255, 206, 86, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            }
+        ]
+    }
+    
+    # Summary statistics
+    total_clean = sum(clean_water_values)
+    total_wastewater = sum(wastewater_values)
+    days_count = len(clean_water_values)
+    
+    summary = {
+        'total': total_clean + total_wastewater,
+        'average': (total_clean + total_wastewater) / days_count if days_count > 0 else 0,
+        'max': max(clean_water_values + wastewater_values) if clean_water_values + wastewater_values else 0,
+        'min': min([x for x in clean_water_values + wastewater_values if x > 0]) if clean_water_values + wastewater_values else 0
+    }
+    
+    # Table data
+    table_data = []
+    for item in customer_data:
+        table_data.append({
+            'date': item.date.strftime('%d/%m/%Y'),
+            'clean_water': float(item.clean_water or 0),
+            'wastewater': float(item.wastewater or 0),
+            'total': float(item.clean_water or 0) + float(item.wastewater or 0)
+        })
+    
+    return jsonify({
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    })
+
 @app.route('/api/kpi-data')
 @login_required
 def kpi_data():

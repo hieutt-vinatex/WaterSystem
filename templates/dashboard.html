@@ -88,23 +88,13 @@
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
-                    <h5><i class="fas fa-sitemap me-2"></i>Sơ đồ Hệ thống Cấp Thoát Nước</h5>
-                    <small class="text-muted">Click vào các khu vực để nhập dữ liệu</small>
-                </div>
-                <div>
-                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="zoomDiagram()">
-                        <i class="fas fa-search-plus"></i> Phóng to
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="resetDiagramZoom()">
-                        <i class="fas fa-compress"></i> Thu nhỏ
-                    </button>
-                </div>
+            <div class="card-header">
+                <h5><i class="fas fa-sitemap me-2"></i>Sơ đồ Hệ thống Cấp Thoát Nước</h5>
+                <small class="text-muted">Click vào các khu vực để nhập dữ liệu</small>
             </div>
-            <div class="card-body p-2" style="min-height: 650px; max-height: 650px; overflow: auto; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-                <div class="system-diagram w-100 h-100 d-flex justify-content-center align-items-center" id="system-diagram">
-                    <div id="water-system-svg" style="width: 100%; height: 100%; transform-origin: center; transition: transform 0.3s ease;"></div>
+            <div class="card-body p-3" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="system-diagram d-flex justify-content-center align-items-center" id="system-diagram" style="min-height: 500px;">
+                    <div id="water-system-svg" style="width: 90%; height: auto;"></div>
                 </div>
             </div>
         </div>
@@ -156,14 +146,10 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6><i class="fas fa-water me-2"></i>Sản lượng tổng các giếng khoan theo ngày</h6>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-cog"></i>
+                <div>
+                    <button class="btn btn-sm btn-primary" onclick="viewChartDetails('wells')">
+                        <i class="fas fa-chart-line me-1"></i>Xem chi tiết
                     </button>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" onclick="showWellDetails()">Chi tiết từng giếng</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportChartData('wells')">Xuất dữ liệu</a></li>
-                    </ul>
                 </div>
             </div>
             <div class="card-body" style="height: 300px;">
@@ -176,14 +162,10 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6><i class="fas fa-tint me-2"></i>Sản lượng nhà máy nước sạch theo ngày</h6>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-cog"></i>
+                <div>
+                    <button class="btn btn-sm btn-primary" onclick="viewChartDetails('clean-water')">
+                        <i class="fas fa-chart-bar me-1"></i>Xem chi tiết
                     </button>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" onclick="showCleanWaterDetails()">Chi tiết hóa chất</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportChartData('clean-water')">Xuất dữ liệu</a></li>
-                    </ul>
                 </div>
             </div>
             <div class="card-body" style="height: 300px;">
@@ -199,17 +181,10 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6><i class="fas fa-recycle me-2"></i>Lưu lượng nước thải qua nhà máy xử lý</h6>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-cog"></i>
+                <div>
+                    <button class="btn btn-sm btn-primary" onclick="viewChartDetails('wastewater')">
+                        <i class="fas fa-chart-area me-1"></i>Xem chi tiết
                     </button>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" onclick="toggleWastewaterPlant(1)">Chỉ NMNT1</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="toggleWastewaterPlant(2)">Chỉ NMNT2</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="toggleWastewaterPlant('both')">Cả hai nhà máy</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportChartData('wastewater')">Xuất dữ liệu</a></li>
-                    </ul>
                 </div>
             </div>
             <div class="card-body" style="height: 300px;">
@@ -222,16 +197,10 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6><i class="fas fa-users me-2"></i>Tiêu thụ nước của khách hàng</h6>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-cog"></i>
+                <div>
+                    <button class="btn btn-sm btn-primary" onclick="viewChartDetails('customers')">
+                        <i class="fas fa-chart-pie me-1"></i>Xem chi tiết
                     </button>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" onclick="showTopCustomers()">Top 10 khách hàng</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="showCustomerTrends()">Xu hướng tiêu thụ</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportChartData('customers')">Xuất dữ liệu</a></li>
-                    </ul>
                 </div>
             </div>
             <div class="card-body" style="height: 300px;">

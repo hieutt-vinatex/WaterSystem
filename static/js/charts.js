@@ -447,35 +447,9 @@ function updateChartsWithCustomRange() {
     document.getElementById('chart-period').value = '';
 }
 
-// Chart detail functions
-function showWellDetails() {
-    window.location.href = '/data-entry#wells';
-}
-
-function showCleanWaterDetails() {
-    window.location.href = '/data-entry#clean-water';
-}
-
-function toggleWastewaterPlant(plant) {
-    // This would filter the wastewater chart data
-    console.log('Toggle wastewater plant:', plant);
-    // Implementation for filtering specific plants
-}
-
-function showTopCustomers() {
-    // Show modal or navigate to detailed customer view
-    console.log('Show top customers');
-}
-
-function showCustomerTrends() {
-    // Show customer consumption trends
-    console.log('Show customer trends');
-}
-
-function exportChartData(chartType) {
-    // Export chart data to Excel/CSV
-    console.log('Export chart data for:', chartType);
-    alert(`Xuất dữ liệu ${chartType} - Tính năng sẽ được phát triển`);
+// View chart details function
+function viewChartDetails(chartType) {
+    window.location.href = `/chart-details/${chartType}`;
 }
 
 // Export functions for global use
