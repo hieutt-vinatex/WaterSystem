@@ -172,6 +172,43 @@ def submit_wastewater_plant():
     
     return redirect(url_for('data_entry'))
 
+@app.route('/submit-tank-levels', methods=['POST'])
+@login_required
+def submit_tank_levels():
+    if not check_permissions(current_user.role, ['data_entry', 'plant_manager', 'admin']):
+        flash('You do not have permission to perform this action', 'error')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+        
+        for tank_id in request.form.getlist('tank_ids'):
+            level = float(request.form.get(f'level_{tank_id}', 0))
+            
+            # Check if entry already exists
+            existing = WaterTankLevel.query.filter_by(
+                tank_id=tank_id, date=entry_date
+            ).first()
+            
+            if existing:
+                existing.level = level
+            else:
+                tank_level = WaterTankLevel(
+                    tank_id=tank_id,
+                    date=entry_date,
+                    level=level,
+                    created_by=current_user.id
+                )
+                db.session.add(tank_level)
+        
+        db.session.commit()
+        flash('Mức nước bể chứa đã được lưu thành công', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Lỗi khi lưu dữ liệu: {str(e)}', 'error')
+    
+    return redirect(url_for('data_entry'))
+
 @app.route('/submit-customer-readings', methods=['POST'])
 @login_required
 def submit_customer_readings():
@@ -644,7 +681,6 @@ def generate_customer_details(start_date, end_date):
 
 @app.route('/api/chart-details/<chart_type>')
 @login_required
-def api_chart_details(chart_type):
     """API endpoint for detailed chart data"""
     try:
         # Get date range

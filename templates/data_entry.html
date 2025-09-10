@@ -32,6 +32,11 @@
             <i class="fas fa-users me-2"></i>Khách hàng
         </button>
     </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tanks-tab" data-bs-toggle="tab" data-bs-target="#tanks" type="button" role="tab">
+            <i class="fas fa-layer-group me-2"></i>Bể chứa
+        </button>
+    </li>
 </ul>
 
 <div class="tab-content" id="dataEntryTabsContent">
@@ -350,6 +355,65 @@
             </div>
         </div>
     </div>
+    
+    <!-- Water Tanks Tab -->
+    <div class="tab-pane fade" id="tanks" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-layer-group me-2"></i>Mức nước bể chứa</h5>
+                <small class="text-muted">Nhập mức nước hiện tại của các bể chứa</small>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('submit_tank_levels') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="tank-date" class="form-label">Ngày</label>
+                            <input type="date" class="form-control" id="tank-date" name="date" value="{{ date.today() }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        {% for tank in tanks %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card {% if tank.tank_type == 'clean_water' %}border-success{% else %}border-info{% endif %}">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        {{ tank.name }}
+                                        {% if tank.tank_type == 'clean_water' %}
+                                        <span class="badge bg-success">Nước sạch</span>
+                                        {% else %}
+                                        <span class="badge bg-info">Nước thô</span>
+                                        {% endif %}
+                                    </h6>
+                                    <div class="mb-2">
+                                        <label class="form-label">Mức nước hiện tại (m³)</label>
+                                        <input type="number" class="form-control" name="level_{{ tank.id }}" 
+                                               step="0.1" min="0" max="{{ tank.capacity }}" 
+                                               placeholder="0 - {{ tank.capacity }}">
+                                        <input type="hidden" name="tank_ids" value="{{ tank.id }}">
+                                    </div>
+                                    <div class="progress mb-2" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" style="width: 0%" 
+                                             data-tank-id="{{ tank.id }}" data-capacity="{{ tank.capacity }}">0%</div>
+                                    </div>
+                                    <small class="text-muted">
+                                        Dung tích tối đa: {{ "{:,.0f}"|format(tank.capacity) }} m³
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Lưu mức nước bể chứa
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -394,6 +458,32 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!input.value) {
             input.value = today;
         }
+    });
+    
+    // Update progress bars for tank levels
+    document.querySelectorAll('input[name^="level_"]').forEach(input => {
+        input.addEventListener('input', function() {
+            const tankId = this.name.split('_')[1];
+            const progressBar = document.querySelector(`[data-tank-id="${tankId}"]`);
+            const capacity = parseFloat(progressBar.dataset.capacity);
+            const currentLevel = parseFloat(this.value) || 0;
+            
+            const percentage = Math.min((currentLevel / capacity) * 100, 100);
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage.toFixed(1) + '%';
+            
+            // Change color based on level
+            progressBar.className = 'progress-bar';
+            if (percentage < 25) {
+                progressBar.classList.add('bg-danger');
+            } else if (percentage < 50) {
+                progressBar.classList.add('bg-warning');
+            } else if (percentage < 80) {
+                progressBar.classList.add('bg-info');
+            } else {
+                progressBar.classList.add('bg-success');
+            }
+        });
     });
 });
 </script>
