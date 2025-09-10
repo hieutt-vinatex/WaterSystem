@@ -2,9 +2,9 @@
 
 // Chart.js default configuration
 Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-// Define chart text and grid colors based on theme or defaults
-const chartTextColor = getComputedStyle(document.documentElement).getPropertyValue('--bs-body-color') || '#333';
-const chartGridColor = getComputedStyle(document.documentElement).getPropertyValue('--bs-gray-300') || '#ccc';
+// Define chart text and grid colors for better visibility
+const chartTextColor = '#1a5a96'; // Dark blue for better visibility on white background
+const chartGridColor = '#dee2e6'; // Light gray for grid lines
 Chart.defaults.color = chartTextColor;
 
 // Global chart instances
@@ -515,62 +515,12 @@ function updateChartsWithCustomRange() {
 }
 
 // View chart details function
-// This function will navigate to the detail page for a given chart type.
-// The detail page will then fetch and display the specific data.
 function viewChartDetails(chartType) {
-    // In a real application, you would fetch data here or redirect to a page
-    // that fetches data based on the chartType.
-    // For this example, we'll simulate a redirect and assume the detail page handles data fetching.
     console.log(`Navigating to details for: ${chartType}`);
-    // Example: window.location.href = `/chart-details/${chartType}`;
-
-    // Simulate fetching and displaying data for the detail view
-    fetchDetailedChartData(chartType);
+    window.location.href = `/chart-details/${chartType}`;
 }
 
-// Function to fetch detailed chart data (simulated)
-async function fetchDetailedChartData(chartType) {
-    console.log(`Fetching detailed data for: ${chartType}`);
-    // Replace with actual API call to get detailed data for the specific chartType
-    // Example: const response = await fetch(`/api/chart-details/${chartType}?date=${someDate}`);
-    // const detailedData = await response.json();
 
-    // Simulate data for demonstration
-    const detailedData = {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-        datasets: [{
-            label: `${chartType} Detail`,
-            data: [10, 20, 15, 25, 30, 22],
-            // Add specific styling as needed for detail charts
-        }]
-    };
-
-    // Here you would update a specific canvas or div for the detail view
-    // For now, we'll just log it.
-    console.log('Detailed Data:', detailedData);
-
-    // Example: If you have a canvas with id `detailChartCanvas`
-    // const detailCtx = document.getElementById('detailChartCanvas');
-    // if (detailCtx) {
-    //     new Chart(detailCtx, {
-    //         type: 'bar', // or 'line' depending on chartType
-    //         data: {
-    //             labels: detailedData.labels,
-    //             datasets: detailedData.datasets
-    //         },
-    //         options: {
-    //             // Detail chart specific options
-    //             responsive: true,
-    //             plugins: {
-    //                 title: {
-    //                     display: true,
-    //                     text: `Chi tiết ${chartType}`
-    //                 }
-    //             }
-    //         }
-    //     });
-    // }
-}
 
 // Export functions for global use
 window.chartUtils = {

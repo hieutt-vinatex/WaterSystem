@@ -334,6 +334,46 @@ def dashboard_data():
 @app.route('/chart-details/<chart_type>')
 @login_required
 def chart_details(chart_type):
+    """Display detailed chart page for specific chart type"""
+    
+    # Chart configuration mapping
+    chart_configs = {
+        'wells': {
+            'name': 'Sản lượng tổng các giếng khoan theo ngày',
+            'icon': 'fa-water',
+            'description': 'Theo dõi sản lượng nước từ 5 giếng khoan hoạt động (GK1, GK2, GK3, GK5, GK5-TT)'
+        },
+        'clean-water': {
+            'name': 'Sản lượng nước sạch từ nhà máy',
+            'icon': 'fa-tint',
+            'description': 'Bao gồm nước từ giếng khoan + nước thô Jasan với công suất 12,000 m³/ngày'
+        },
+        'wastewater': {
+            'name': 'Lưu lượng nước thải qua nhà máy xử lý',
+            'icon': 'fa-recycle',
+            'description': 'NMNT1: 12,000 m³/ngày, NMNT2: 8,000 m³/ngày'
+        },
+        'customers': {
+            'name': 'Tiêu thụ nước của khách hàng',
+            'icon': 'fa-users',
+            'description': 'Theo dõi tiêu thụ nước sạch và phát sinh nước thải của 50 khách hàng'
+        }
+    }
+    
+    config = chart_configs.get(chart_type)
+    if not config:
+        flash('Loại biểu đồ không hợp lệ', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('chart_details.html',
+                           chart_type=chart_type,
+                           chart_type_name=config['name'],
+                           chart_icon=config['icon'],
+                           chart_description=config['description'])
+
+@app.route('/api/chart-details/<chart_type>')
+@login_required
+def chart_details(chart_type):
     """Chart details page"""
     if not check_permissions(current_user.role, ['leadership', 'plant_manager', 'admin']):
         flash('You do not have permission to access this page', 'error')
@@ -371,7 +411,235 @@ def chart_details(chart_type):
     return render_template('chart_details.html', 
                          chart_type=chart_type,
                          chart_type_name=config['name'],
-                         chart_description=config['description'],
+                         def api_chart_details(chart_type):
+    """API endpoint for chart detail data"""
+    try:
+        days = request.args.get('days', 30, type=int)
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Calculate date range
+        if start_date and end_date:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+        else:
+            end_dt = datetime.now().date()
+            start_dt = end_dt - timedelta(days=days)
+        
+        # Generate detailed data based on chart type
+        if chart_type == 'wells':
+            data = generate_well_production_details(start_dt, end_dt)
+        elif chart_type == 'clean-water':
+            data = generate_clean_water_details(start_dt, end_dt)
+        elif chart_type == 'wastewater':
+            data = generate_wastewater_details(start_dt, end_dt)
+        elif chart_type == 'customers':
+            data = generate_customer_details(start_dt, end_dt)
+        else:
+            return jsonify({'error': 'Invalid chart type'}), 400
+        
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error in chart details API: {str(e)}")
+        return jsonify({'error': 'Lỗi khi tải dữ liệu chi tiết'}), 500
+
+def generate_well_production_details(start_date, end_date):
+    """Generate detailed well production data"""
+    dates = []
+    current_date = start_date
+    while current_date <= end_date:
+        dates.append(current_date)
+        current_date += timedelta(days=1)
+    
+    chart_data = {
+        'labels': [d.strftime('%d/%m') for d in dates],
+        'datasets': [{
+            'label': 'Tổng sản lượng (m³)',
+            'data': [random.uniform(8000, 10000) for _ in dates],
+            'borderColor': 'rgb(54, 162, 235)',
+            'backgroundColor': 'rgba(54, 162, 235, 0.1)',
+            'fill': True,
+            'tension': 0.4
+        }]
+    }
+    
+    # Calculate summary
+    total_production = sum(chart_data['datasets'][0]['data'])
+    summary = {
+        'total': total_production,
+        'average': total_production / len(dates),
+        'max': max(chart_data['datasets'][0]['data']),
+        'min': min(chart_data['datasets'][0]['data'])
+    }
+    
+    # Generate table data
+    table_data = []
+    for i, date in enumerate(dates):
+        table_data.append({
+            'date': date.strftime('%d/%m/%Y'),
+            'production': chart_data['datasets'][0]['data'][i]
+        })
+    
+    return {
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    }
+
+def generate_clean_water_details(start_date, end_date):
+    """Generate detailed clean water production data"""
+    dates = []
+    current_date = start_date
+    while current_date <= end_date:
+        dates.append(current_date)
+        current_date += timedelta(days=1)
+    
+    chart_data = {
+        'labels': [d.strftime('%d/%m') for d in dates],
+        'datasets': [{
+            'label': 'Nước sạch sản xuất (m³)',
+            'data': [random.uniform(9000, 12000) for _ in dates],
+            'backgroundColor': 'rgba(75, 192, 192, 0.6)',
+            'borderColor': 'rgb(75, 192, 192)',
+            'borderWidth': 1
+        }]
+    }
+    
+    total_production = sum(chart_data['datasets'][0]['data'])
+    summary = {
+        'total': total_production,
+        'average': total_production / len(dates),
+        'max': max(chart_data['datasets'][0]['data']),
+        'min': min(chart_data['datasets'][0]['data'])
+    }
+    
+    table_data = []
+    for i, date in enumerate(dates):
+        table_data.append({
+            'date': date.strftime('%d/%m/%Y'),
+            'clean_water_output': chart_data['datasets'][0]['data'][i]
+        })
+    
+    return {
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    }
+
+def generate_wastewater_details(start_date, end_date):
+    """Generate detailed wastewater data"""
+    dates = []
+    current_date = start_date
+    while current_date <= end_date:
+        dates.append(current_date)
+        current_date += timedelta(days=1)
+    
+    input_data = [random.uniform(15000, 18000) for _ in dates]
+    output_data = [random.uniform(14000, 17000) for _ in dates]
+    
+    chart_data = {
+        'labels': [d.strftime('%d/%m') for d in dates],
+        'datasets': [
+            {
+                'label': 'Nước thải đầu vào (m³)',
+                'data': input_data,
+                'borderColor': 'rgb(255, 99, 132)',
+                'backgroundColor': 'rgba(255, 99, 132, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'Nước thải đầu ra (m³)',
+                'data': output_data,
+                'borderColor': 'rgb(54, 162, 235)',
+                'backgroundColor': 'rgba(54, 162, 235, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            }
+        ]
+    }
+    
+    total_input = sum(input_data)
+    total_output = sum(output_data)
+    
+    summary = {
+        'total': total_input + total_output,
+        'average': (total_input + total_output) / (2 * len(dates)),
+        'max': max(max(input_data), max(output_data)),
+        'min': min(min(input_data), min(output_data))
+    }
+    
+    table_data = []
+    for i, date in enumerate(dates):
+        table_data.append({
+            'date': date.strftime('%d/%m/%Y'),
+            'input_flow': input_data[i],
+            'output_flow': output_data[i]
+        })
+    
+    return {
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    }
+
+def generate_customer_details(start_date, end_date):
+    """Generate detailed customer consumption data"""
+    dates = []
+    current_date = start_date
+    while current_date <= end_date:
+        dates.append(current_date)
+        current_date += timedelta(days=1)
+    
+    clean_water_data = [random.uniform(8000, 11000) for _ in dates]
+    wastewater_data = [random.uniform(7000, 10000) for _ in dates]
+    
+    chart_data = {
+        'labels': [d.strftime('%d/%m') for d in dates],
+        'datasets': [
+            {
+                'label': 'Nước sạch tiêu thụ (m³)',
+                'data': clean_water_data,
+                'borderColor': 'rgb(54, 162, 235)',
+                'backgroundColor': 'rgba(54, 162, 235, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'Nước thải phát sinh (m³)',
+                'data': wastewater_data,
+                'borderColor': 'rgb(255, 206, 86)',
+                'backgroundColor': 'rgba(255, 206, 86, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            }
+        ]
+    }
+    
+    total_clean = sum(clean_water_data)
+    total_waste = sum(wastewater_data)
+    
+    summary = {
+        'total': total_clean + total_waste,
+        'average': (total_clean + total_waste) / (2 * len(dates)),
+        'max': max(max(clean_water_data), max(wastewater_data)),
+        'min': min(min(clean_water_data), min(wastewater_data))
+    }
+    
+    table_data = []
+    for i, date in enumerate(dates):
+        table_data.append({
+            'date': date.strftime('%d/%m/%Y'),
+            'clean_water': clean_water_data[i],
+            'wastewater': wastewater_data[i]
+        })
+    
+    return {
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    }
                          chart_icon=config['icon'])
 
 @app.route('/api/chart-details/<chart_type>')

@@ -34,6 +34,16 @@
     width: 100%;
 }
 
+/* Fix chart label colors for better visibility */
+.chart-container canvas {
+    background-color: transparent;
+}
+
+/* Ensure chart text is visible on light backgrounds */
+.card-body canvas {
+    color: var(--bs-dark) !important;
+}
+
 /* Data entry form enhancements */
 .data-entry-section {
     border-left: 4px solid var(--bs-primary);
