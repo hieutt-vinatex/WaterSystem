@@ -232,6 +232,78 @@
     padding: 20px 0;
 }
 
+/* Ensure all text is visible on dark backgrounds */
+.text-white-force {
+    color: #fff !important;
+}
+
+.text-light-force {
+    color: #e9ecef !important;
+}
+
+/* Chart wrapper with proper text colors */
+.chart-wrapper {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.chart-wrapper h6,
+.chart-wrapper p,
+.chart-wrapper small {
+    color: #e9ecef !important;
+}
+
+/* Period selector and controls */
+.chart-controls {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.chart-controls label,
+.chart-controls .form-label {
+    color: #e9ecef !important;
+    font-weight: 500;
+}
+
+/* Dropdown and select styling for dark theme */
+[data-bs-theme="dark"] .form-select {
+    color: #e9ecef !important;
+    background-color: #2d3439 !important;
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .form-select:focus {
+    border-color: #86b7fe !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+}
+
+/* Alert styling for better visibility */
+[data-bs-theme="dark"] .alert {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+[data-bs-theme="dark"] .alert-info {
+    color: #b6effb !important;
+    background-color: rgba(13, 202, 240, 0.1) !important;
+    border-color: rgba(13, 202, 240, 0.2) !important;
+}
+
+[data-bs-theme="dark"] .alert-warning {
+    color: #ffecb5 !important;
+    background-color: rgba(255, 193, 7, 0.1) !important;
+    border-color: rgba(255, 193, 7, 0.2) !important;
+}
+
+[data-bs-theme="dark"] .alert-success {
+    color: #d4edda !important;
+    background-color: rgba(25, 135, 84, 0.1) !important;
+    border-color: rgba(25, 135, 84, 0.2) !important;
+}
+
 .stat-card {
     transition: transform 0.2s ease-in-out;
     border: none;
@@ -295,24 +367,118 @@
     to { transform: rotate(360deg); }
 }
 
-/* Ensure chart labels are visible */
+/* Ensure chart labels are visible on dark theme */
 .chart-container {
-    color: #212529 !important;
+    color: #fff !important;
 }
 
-/* Badge colors */
+.chart-container .chart-title,
+.chart-container .chart-legend,
+.chart-container .chart-label {
+    color: #fff !important;
+}
+
+/* Chart text visibility */
+.card-body .chart-container,
+.card-body .chart-container * {
+    color: #fff !important;
+}
+
+/* Badge colors for better visibility */
 .badge {
-    color: #212529 !important;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .badge.bg-warning {
-    color: #212529 !important;
+    color: #000 !important;
+    background-color: #ffc107 !important;
 }
 
 .badge.bg-info {
     color: #fff !important;
+    background-color: #0dcaf0 !important;
 }
 
 .badge.bg-success {
     color: #fff !important;
+    background-color: #198754 !important;
+}
+
+.badge.bg-primary {
+    color: #fff !important;
+    background-color: #0d6efd !important;
+}
+
+.badge.bg-secondary {
+    color: #fff !important;
+    background-color: #6c757d !important;
+}
+
+.badge.bg-danger {
+    color: #fff !important;
+    background-color: #dc3545 !important;
+}
+
+/* Chart description text */
+.chart-description {
+    color: #e9ecef !important;
+    font-size: 0.9rem;
+    margin-top: 10px;
+}
+
+/* Card text in dark theme */
+[data-bs-theme="dark"] .card-body {
+    color: #e9ecef !important;
+}
+
+[data-bs-theme="dark"] .card-title {
+    color: #fff !important;
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: #adb5bd !important;
+}
+
+/* Button text visibility */
+.btn {
+    font-weight: 600;
+}
+
+.btn-outline-primary {
+    color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: #0d6efd;
+}
+
+/* Table text in dark theme */
+[data-bs-theme="dark"] .table {
+    color: #e9ecef !important;
+}
+
+[data-bs-theme="dark"] .table th {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Form labels and text */
+[data-bs-theme="dark"] .form-label {
+    color: #e9ecef !important;
+}
+
+[data-bs-theme="dark"] .form-control {
+    color: #e9ecef !important;
+    background-color: #2d3439 !important;
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .form-control:focus {
+    color: #e9ecef !important;
+    background-color: #2d3439 !important;
+    border-color: #86b7fe !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
 }

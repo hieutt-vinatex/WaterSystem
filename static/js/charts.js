@@ -232,7 +232,19 @@ function createWastewaterChart(data) {
                 },
                 legend: {
                     display: true,
-                    position: 'bottom'
+                    position: 'bottom',
+                    labels: {
+                        color: chartTextColor,
+                        usePointStyle: true,
+                        padding: 20
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: chartTextColor,
+                    borderWidth: 1
                 }
             },
             scales: {
@@ -319,16 +331,19 @@ function createCustomerChart(data) {
                 },
                 legend: {
                     display: true,
-                    position: 'bottom'
+                    position: 'bottom',
+                    labels: {
+                        color: chartTextColor,
+                        usePointStyle: true,
+                        padding: 20
+                    }
                 },
                 tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.dataset.label || '';
-                            const value = formatNumber(context.raw);
-                            return `${label}: ${value} m³`;
-                        }
-                    }
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: chartTextColor,
+                    borderWidth: 1
                 }
             },
             scales: {
