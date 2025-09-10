@@ -681,7 +681,6 @@ def generate_customer_details(start_date, end_date):
 
 @app.route('/api/chart-details/<chart_type>')
 @login_required
-def api_chart_details(chart_type):
     """API endpoint for detailed chart data"""
     try:
         # Get date range
