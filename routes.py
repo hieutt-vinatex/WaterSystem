@@ -405,13 +405,267 @@ def api_chart_details(chart_type):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def get_wells_detail_data(start_date, end_date):
+    """Get detailed well production data"""
+    # Individual well production data
+    well_data = db.session.query(
+        WellProduction.date,
+        Well.code,
+        Well.name,
+        WellProduction.production
+    ).join(Well).filter(
+        WellProduction.date >= start_date,
+        WellProduction.date <= end_date,
+        Well.is_active == True
+    ).order_by(WellProduction.date, Well.code).all()
+    
+    # Group data by date and well
+    wells_by_date = {}
+    well_names = {}
+    
+    for item in well_data:
+        date_str = item.date.strftime('%d/%m')
+        if date_str not in wells_by_date:
+            wells_by_date[date_str] = {}
+        wells_by_date[date_str][item.code] = float(item.production or 0)
+        well_names[item.code] = item.name
+    
+    # Prepare chart data
+    labels = sorted(wells_by_date.keys(), key=lambda x: datetime.strptime(x, '%d/%m'))
+    datasets = []
+    
+    colors = ['rgb(54, 162, 235)', 'rgb(255, 99, 132)', 'rgb(75, 192, 192)', 
+              'rgb(255, 206, 86)', 'rgb(153, 102, 255)']
+    
+    for i, well_code in enumerate(sorted(well_names.keys())):
+        data = [wells_by_date.get(date, {}).get(well_code, 0) for date in labels]
+        datasets.append({
+            'label': f'{well_code} - {well_names[well_code]}',
+            'data': data,
+            'borderColor': colors[i % len(colors)],
+            'backgroundColor': colors[i % len(colors)].replace('rgb', 'rgba').replace(')', ', 0.1)'),
+            'fill': False,
+            'tension': 0.4
+        })
+    
+    chart_data = {
+        'labels': labels,
+        'datasets': datasets
+    }
+    
+    # Summary statistics
+    total_production = sum([sum(day.values()) for day in wells_by_date.values()])
+    days_count = len(wells_by_date)
+    
+    summary = {
+        'total': total_production,
+        'average': total_production / days_count if days_count > 0 else 0,
+        'max': max([sum(day.values()) for day in wells_by_date.values()]) if wells_by_date else 0,
+        'min': min([sum(day.values()) for day in wells_by_date.values() if sum(day.values()) > 0]) if wells_by_date else 0
+    }
+    
+    # Table data
+    table_data = []
+    for date in labels:
+        date_obj = datetime.strptime(date, '%d/%m').replace(year=datetime.now().year)
+        row = {'date': date_obj.strftime('%d/%m/%Y')}
+        total = 0
+        for well_code in sorted(well_names.keys()):
+            value = wells_by_date.get(date, {}).get(well_code, 0)
+            row[well_code] = value
+            total += value
+        row['total'] = total
+        table_data.append(row)
+    
+    return jsonify({
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    })
+
+def get_clean_water_detail_data(start_date, end_date):
+    """Get detailed clean water production data"""
+    clean_water_data = CleanWaterPlant.query.filter(
+        CleanWaterPlant.date >= start_date,
+        CleanWaterPlant.date <= end_date
+    ).order_by(CleanWaterPlant.date).all()
+    
+    # Prepare chart data
+    labels = [item.date.strftime('%d/%m') for item in clean_water_data]
+    clean_output = [float(item.clean_water_output or 0) for item in clean_water_data]
+    raw_jasan = [float(item.raw_water_jasan or 0) for item in clean_water_data]
+    
+    chart_data = {
+        'labels': labels,
+        'datasets': [
+            {
+                'label': 'Nước sạch sản xuất (m³)',
+                'data': clean_output,
+                'borderColor': 'rgb(75, 192, 192)',
+                'backgroundColor': 'rgba(75, 192, 192, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'Nước thô Jasan (m³)',
+                'data': raw_jasan,
+                'borderColor': 'rgb(255, 159, 64)',
+                'backgroundColor': 'rgba(255, 159, 64, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            }
+        ]
+    }
+    
+    # Summary statistics
+    total_clean = sum(clean_output)
+    total_raw = sum(raw_jasan)
+    days_count = len(clean_output)
+    
+    summary = {
+        'total': total_clean + total_raw,
+        'average': (total_clean + total_raw) / days_count if days_count > 0 else 0,
+        'max': max(clean_output + raw_jasan) if clean_output + raw_jasan else 0,
+        'min': min([x for x in clean_output + raw_jasan if x > 0]) if clean_output + raw_jasan else 0
+    }
+    
+    # Table data
+    table_data = []
+    for item in clean_water_data:
+        table_data.append({
+            'date': item.date.strftime('%d/%m/%Y'),
+            'clean_water_output': float(item.clean_water_output or 0),
+            'raw_water_jasan': float(item.raw_water_jasan or 0),
+            'electricity': float(item.electricity or 0),
+            'pac_usage': float(item.pac_usage or 0),
+            'naoh_usage': float(item.naoh_usage or 0),
+            'polymer_usage': float(item.polymer_usage or 0)
+        })
+    
+    return jsonify({
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    })
+
+def get_wastewater_detail_data(start_date, end_date):
+    """Get detailed wastewater treatment data"""
+    wastewater_data = db.session.query(
+        WastewaterPlant.date,
+        WastewaterPlant.plant_number,
+        WastewaterPlant.input_flow_tqt,
+        WastewaterPlant.output_flow_tqt,
+        WastewaterPlant.wastewater_meter,
+        WastewaterPlant.sludge_output,
+        WastewaterPlant.electricity,
+        WastewaterPlant.chemical_usage
+    ).filter(
+        WastewaterPlant.date >= start_date,
+        WastewaterPlant.date <= end_date
+    ).order_by(WastewaterPlant.date, WastewaterPlant.plant_number).all()
+    
+    # Group data by date and plant
+    plants_by_date = {}
+    
+    for item in wastewater_data:
+        date_str = item.date.strftime('%d/%m')
+        if date_str not in plants_by_date:
+            plants_by_date[date_str] = {'plant1_input': 0, 'plant1_output': 0, 
+                                       'plant2_input': 0, 'plant2_output': 0}
+        
+        if item.plant_number == 1:
+            plants_by_date[date_str]['plant1_input'] = float(item.input_flow_tqt or 0)
+            plants_by_date[date_str]['plant1_output'] = float(item.output_flow_tqt or 0)
+        else:
+            plants_by_date[date_str]['plant2_input'] = float(item.input_flow_tqt or 0)
+            plants_by_date[date_str]['plant2_output'] = float(item.output_flow_tqt or 0)
+    
+    # Prepare chart data
+    labels = sorted(plants_by_date.keys(), key=lambda x: datetime.strptime(x, '%d/%m'))
+    
+    chart_data = {
+        'labels': labels,
+        'datasets': [
+            {
+                'label': 'NMNT1 - Đầu vào (m³)',
+                'data': [plants_by_date[date]['plant1_input'] for date in labels],
+                'borderColor': 'rgb(255, 99, 132)',
+                'backgroundColor': 'rgba(255, 99, 132, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'NMNT1 - Đầu ra (m³)',
+                'data': [plants_by_date[date]['plant1_output'] for date in labels],
+                'borderColor': 'rgb(54, 162, 235)',
+                'backgroundColor': 'rgba(54, 162, 235, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'NMNT2 - Đầu vào (m³)',
+                'data': [plants_by_date[date]['plant2_input'] for date in labels],
+                'borderColor': 'rgb(255, 206, 86)',
+                'backgroundColor': 'rgba(255, 206, 86, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'NMNT2 - Đầu ra (m³)',
+                'data': [plants_by_date[date]['plant2_output'] for date in labels],
+                'borderColor': 'rgb(75, 192, 192)',
+                'backgroundColor': 'rgba(75, 192, 192, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            }
+        ]
+    }
+    
+    # Summary statistics
+    total_input = sum([day['plant1_input'] + day['plant2_input'] for day in plants_by_date.values()])
+    total_output = sum([day['plant1_output'] + day['plant2_output'] for day in plants_by_date.values()])
+    days_count = len(plants_by_date)
+    
+    summary = {
+        'total': total_input + total_output,
+        'average': (total_input + total_output) / days_count if days_count > 0 else 0,
+        'max': max([day['plant1_input'] + day['plant2_input'] + day['plant1_output'] + day['plant2_output'] 
+                   for day in plants_by_date.values()]) if plants_by_date else 0,
+        'min': 0
+    }
+    
+    # Table data
+    table_data = []
+    for item in wastewater_data:
+        table_data.append({
+            'date': item.date.strftime('%d/%m/%Y'),
+            'plant_number': item.plant_number,
+            'input_flow': float(item.input_flow_tqt or 0),
+            'output_flow': float(item.output_flow_tqt or 0),
+            'wastewater_meter': float(item.wastewater_meter or 0),
+            'sludge_output': float(item.sludge_output or 0),
+            'electricity': float(item.electricity or 0),
+            'chemical_usage': float(item.chemical_usage or 0)
+        })
+    
+    return jsonify({
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    })
+
 def get_customers_detail_data(start_date, end_date):
     """Get detailed customer consumption data"""
-    # Customer consumption data - fixed to show actual data instead of zeros
+    # Customer consumption data - using correct field names from model
     customer_data = db.session.query(
         CustomerReading.date,
-        func.sum(CustomerReading.clean_water_usage).label('clean_water'),
-        func.sum(CustomerReading.wastewater_discharge).label('wastewater')
+        db.func.sum(CustomerReading.clean_water_reading).label('clean_water'),
+        db.func.sum(
+            db.case(
+                (CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
+                else_=CustomerReading.wastewater_calculated
+            )
+        ).label('wastewater')
     ).filter(
         CustomerReading.date >= start_date,
         CustomerReading.date <= end_date

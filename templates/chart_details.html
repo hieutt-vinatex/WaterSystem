@@ -62,7 +62,75 @@
         </div>
     </div>
 
-    <!-- Chart and Data Table -->
+    <!-- Chart and Summary Section -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-chart-line me-2"></i>Biểu đồ chi tiết</h6>
+                </div>
+                <div class="card-body" style="height: 400px;">
+                    <canvas id="detailChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-info-circle me-2"></i>Thống kê tổng quan</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border rounded p-2 mb-2">
+                                <small class="text-muted">Tổng cộng</small>
+                                <h5 id="summary-total" class="text-primary">0</h5>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-2 mb-2">
+                                <small class="text-muted">Trung bình/ngày</small>
+                                <h5 id="summary-average" class="text-info">0</h5>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-2 mb-2">
+                                <small class="text-muted">Cao nhất</small>
+                                <h5 id="summary-max" class="text-success">0</h5>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-2">
+                                <small class="text-muted">Thấp nhất</small>
+                                <h5 id="summary-min" class="text-warning">0</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-table me-2"></i>Dữ liệu chi tiết</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="dataTable">
+                            <thead>
+                                <tr id="tableHeader"></tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>t and Data Table -->
     <div class="row">
         <div class="col-lg-8">
             <div class="card">
@@ -185,6 +253,189 @@ async function loadChartDetails(days = 30, startDate = null, endDate = null) {
         
         if (data.error) {
             console.error('Chart Details Error:', data.error);
+            return;
+        }
+        
+        // Create the detail chart
+        createDetailChart(data.chart_data);
+        
+        // Update summary
+        updateSummary(data.summary);
+        
+        // Update table
+        updateTable(data.table_data);
+        
+    } catch (error) {
+        console.error('Error loading chart details:', error);
+    }
+}
+
+function createDetailChart(chartData) {
+    const ctx = document.getElementById('detailChart');
+    if (!ctx) return;
+    
+    // Destroy existing chart
+    if (detailChart) {
+        detailChart.destroy();
+    }
+    
+    detailChart = new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
+            plugins: {
+                title: {
+                    display: false
+                },
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || '';
+                            const value = new Intl.NumberFormat('vi-VN').format(Math.round(context.raw));
+                            return `${label}: ${value} m³`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Lưu lượng (m³)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Ngày'
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+}
+
+function updateSummary(summary) {
+    document.getElementById('summary-total').textContent = formatNumber(summary.total);
+    document.getElementById('summary-average').textContent = formatNumber(summary.average);
+    document.getElementById('summary-max').textContent = formatNumber(summary.max);
+    document.getElementById('summary-min').textContent = formatNumber(summary.min);
+}
+
+function updateTable(tableData) {
+    const headerRow = document.getElementById('tableHeader');
+    const tableBody = document.getElementById('tableBody');
+    
+    if (!tableData || tableData.length === 0) {
+        headerRow.innerHTML = '<th>Không có dữ liệu</th>';
+        tableBody.innerHTML = '<tr><td>Không có dữ liệu để hiển thị</td></tr>';
+        return;
+    }
+    
+    // Create header based on chart type and first data row
+    const firstRow = tableData[0];
+    const headers = Object.keys(firstRow);
+    
+    headerRow.innerHTML = '';
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = getColumnLabel(header);
+        headerRow.appendChild(th);
+    });
+    
+    // Create table rows
+    tableBody.innerHTML = '';
+    tableData.forEach(row => {
+        const tr = document.createElement('tr');
+        headers.forEach(header => {
+            const td = document.createElement('td');
+            const value = row[header];
+            
+            if (typeof value === 'number' && header !== 'plant_number') {
+                td.textContent = formatNumber(value);
+            } else {
+                td.textContent = value || '-';
+            }
+            tr.appendChild(td);
+        });
+        tableBody.appendChild(tr);
+    });
+}
+
+function getColumnLabel(columnName) {
+    const labels = {
+        'date': 'Ngày',
+        'total': 'Tổng cộng',
+        'clean_water': 'Nước sạch (m³)',
+        'wastewater': 'Nước thải (m³)',
+        'clean_water_output': 'Nước sạch sản xuất (m³)',
+        'raw_water_jasan': 'Nước thô Jasan (m³)',
+        'electricity': 'Điện (kWh)',
+        'pac_usage': 'PAC (kg)',
+        'naoh_usage': 'NaOH (kg)',
+        'polymer_usage': 'Polymer (kg)',
+        'plant_number': 'Nhà máy',
+        'input_flow': 'Đầu vào (m³)',
+        'output_flow': 'Đầu ra (m³)',
+        'wastewater_meter': 'Đồng hồ nước thải (m³)',
+        'sludge_output': 'Bùn thải (m³)',
+        'chemical_usage': 'Hóa chất (kg)',
+        'GK1': 'GK1 (m³)',
+        'GK2': 'GK2 (m³)',
+        'GK3': 'GK3 (m³)',
+        'GK5': 'GK5 (m³)',
+        'GK5-TT': 'GK5-TT (m³)'
+    };
+    return labels[columnName] || columnName;
+}
+
+function formatNumber(num) {
+    if (typeof num !== 'number') return '0';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(num));
+}
+
+function exportData() {
+    // Simple CSV export
+    const table = document.getElementById('dataTable');
+    let csv = '';
+    
+    // Get headers
+    const headers = table.querySelectorAll('thead th');
+    const headerRow = Array.from(headers).map(th => th.textContent).join(',');
+    csv += headerRow + '\n';
+    
+    // Get data rows
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const rowData = Array.from(cells).map(td => td.textContent).join(',');
+        csv += rowData + '\n';
+    });
+    
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `${chartType}_data_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}, data.error);
             return;
         }
         
