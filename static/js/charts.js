@@ -2,9 +2,9 @@
 
 // Chart.js default configuration
 Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-// Chart colors configuration
-const chartTextColor = '#212529';
-const chartGridColor = '#dee2e6';
+// Define chart text and grid colors for better visibility
+const chartTextColor = '#1a5a96'; // Dark blue for better visibility on white background
+const chartGridColor = '#dee2e6'; // Light gray for grid lines
 Chart.defaults.color = chartTextColor;
 
 // Global chart instances
@@ -232,19 +232,7 @@ function createWastewaterChart(data) {
                 },
                 legend: {
                     display: true,
-                    position: 'bottom',
-                    labels: {
-                        color: chartTextColor,
-                        usePointStyle: true,
-                        padding: 20
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    titleColor: '#fff',
-                    bodyColor: '#fff',
-                    borderColor: chartTextColor,
-                    borderWidth: 1
+                    position: 'bottom'
                 }
             },
             scales: {
@@ -331,19 +319,16 @@ function createCustomerChart(data) {
                 },
                 legend: {
                     display: true,
-                    position: 'bottom',
-                    labels: {
-                        color: chartTextColor,
-                        usePointStyle: true,
-                        padding: 20
-                    }
+                    position: 'bottom'
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    titleColor: '#fff',
-                    bodyColor: '#fff',
-                    borderColor: chartTextColor,
-                    borderWidth: 1
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || '';
+                            const value = formatNumber(context.raw);
+                            return `${label}: ${value} m³`;
+                        }
+                    }
                 }
             },
             scales: {
