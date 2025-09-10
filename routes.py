@@ -6,6 +6,10 @@ from models import *
 from utils import generate_daily_report, generate_monthly_report, check_permissions
 from datetime import datetime, date, timedelta
 import json
+import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 @app.route('/')
 @login_required
@@ -17,16 +21,16 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
+
         user = User.query.filter_by(username=username).first()
-        
+
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             next_page = request.args.get('next')
             return redirect(next_page) if next_page else redirect(url_for('dashboard'))
         else:
             flash('Invalid username or password', 'error')
-    
+
     return render_template('login.html')
 
 @app.route('/logout')
@@ -41,12 +45,12 @@ def data_entry():
     if not check_permissions(current_user.role, ['data_entry', 'plant_manager', 'admin']):
         flash('You do not have permission to access this page', 'error')
         return redirect(url_for('dashboard'))
-    
+
     # Get data for forms
     wells = Well.query.filter_by(is_active=True).all()
     customers = Customer.query.filter_by(is_active=True).all()
     tanks = WaterTank.query.all()
-    
+
     return render_template('data_entry.html', wells=wells, customers=customers, tanks=tanks, date=date)
 
 @app.route('/submit-well-data', methods=['POST'])
@@ -55,18 +59,18 @@ def submit_well_data():
     if not check_permissions(current_user.role, ['data_entry', 'plant_manager', 'admin']):
         flash('You do not have permission to perform this action', 'error')
         return redirect(url_for('dashboard'))
-    
+
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        
+
         for well_id in request.form.getlist('well_ids'):
             production = float(request.form.get(f'production_{well_id}', 0))
-            
+
             # Check if entry already exists
             existing = WellProduction.query.filter_by(
                 well_id=well_id, date=entry_date
             ).first()
-            
+
             if existing:
                 existing.production = production
             else:
@@ -77,13 +81,13 @@ def submit_well_data():
                     created_by=current_user.id
                 )
                 db.session.add(well_production)
-        
+
         db.session.commit()
         flash('Well production data saved successfully', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
-    
+
     return redirect(url_for('data_entry'))
 
 @app.route('/submit-clean-water-plant', methods=['POST'])
@@ -92,13 +96,13 @@ def submit_clean_water_plant():
     if not check_permissions(current_user.role, ['data_entry', 'plant_manager', 'admin']):
         flash('You do not have permission to perform this action', 'error')
         return redirect(url_for('dashboard'))
-    
+
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        
+
         # Check if entry already exists
         existing = CleanWaterPlant.query.filter_by(date=entry_date).first()
-        
+
         if existing:
             existing.electricity = float(request.form.get('electricity', 0))
             existing.pac_usage = float(request.form.get('pac_usage', 0))
@@ -118,13 +122,13 @@ def submit_clean_water_plant():
                 created_by=current_user.id
             )
             db.session.add(clean_water_plant)
-        
+
         db.session.commit()
         flash('Clean water plant data saved successfully', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
-    
+
     return redirect(url_for('data_entry'))
 
 @app.route('/submit-wastewater-plant', methods=['POST'])
@@ -133,16 +137,16 @@ def submit_wastewater_plant():
     if not check_permissions(current_user.role, ['data_entry', 'plant_manager', 'admin']):
         flash('You do not have permission to perform this action', 'error')
         return redirect(url_for('dashboard'))
-    
+
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
         plant_number = int(request.form['plant_number'])
-        
+
         # Check if entry already exists
         existing = WastewaterPlant.query.filter_by(
             date=entry_date, plant_number=plant_number
         ).first()
-        
+
         if existing:
             existing.wastewater_meter = float(request.form.get('wastewater_meter', 0))
             existing.input_flow_tqt = float(request.form.get('input_flow_tqt', 0))
@@ -163,13 +167,13 @@ def submit_wastewater_plant():
                 created_by=current_user.id
             )
             db.session.add(wastewater_plant)
-        
+
         db.session.commit()
         flash(f'Wastewater plant {plant_number} data saved successfully', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
-    
+
     return redirect(url_for('data_entry'))
 
 @app.route('/submit-tank-levels', methods=['POST'])
@@ -178,18 +182,18 @@ def submit_tank_levels():
     if not check_permissions(current_user.role, ['data_entry', 'plant_manager', 'admin']):
         flash('You do not have permission to perform this action', 'error')
         return redirect(url_for('dashboard'))
-    
+
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        
+
         for tank_id in request.form.getlist('tank_ids'):
             level = float(request.form.get(f'level_{tank_id}', 0))
-            
+
             # Check if entry already exists
             existing = WaterTankLevel.query.filter_by(
                 tank_id=tank_id, date=entry_date
             ).first()
-            
+
             if existing:
                 existing.level = level
             else:
@@ -200,13 +204,13 @@ def submit_tank_levels():
                     created_by=current_user.id
                 )
                 db.session.add(tank_level)
-        
+
         db.session.commit()
         flash('Mức nước bể chứa đã được lưu thành công', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Lỗi khi lưu dữ liệu: {str(e)}', 'error')
-    
+
     return redirect(url_for('data_entry'))
 
 @app.route('/submit-customer-readings', methods=['POST'])
@@ -215,16 +219,16 @@ def submit_customer_readings():
     if not check_permissions(current_user.role, ['data_entry', 'plant_manager', 'admin']):
         flash('You do not have permission to perform this action', 'error')
         return redirect(url_for('dashboard'))
-    
+
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        
+
         for customer_id in request.form.getlist('customer_ids'):
             clean_water_reading = float(request.form.get(f'clean_water_{customer_id}', 0))
             wastewater_reading = request.form.get(f'wastewater_{customer_id}')
-            
+
             customer = Customer.query.get(customer_id)
-            
+
             # Calculate wastewater if not provided
             if wastewater_reading:
                 wastewater_reading = float(wastewater_reading)
@@ -232,12 +236,12 @@ def submit_customer_readings():
             else:
                 wastewater_reading = None
                 wastewater_calculated = clean_water_reading * customer.water_ratio
-            
+
             # Check if entry already exists
             existing = CustomerReading.query.filter_by(
                 customer_id=customer_id, date=entry_date
             ).first()
-            
+
             if existing:
                 existing.clean_water_reading = clean_water_reading
                 existing.wastewater_reading = wastewater_reading
@@ -252,13 +256,13 @@ def submit_customer_readings():
                     created_by=current_user.id
                 )
                 db.session.add(customer_reading)
-        
+
         db.session.commit()
         flash('Customer readings saved successfully', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
-    
+
     return redirect(url_for('data_entry'))
 
 @app.route('/reports')
@@ -267,7 +271,7 @@ def reports():
     if not check_permissions(current_user.role, ['accounting', 'plant_manager', 'leadership', 'admin']):
         flash('You do not have permission to access this page', 'error')
         return redirect(url_for('dashboard'))
-    
+
     return render_template('reports.html')
 
 @app.route('/generate-report/<report_type>')
@@ -277,12 +281,12 @@ def generate_report(report_type):
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         format_type = request.args.get('format', 'excel')  # excel or pdf
-        
+
         if report_type == 'daily_clean_water':
             response = generate_daily_report(start_date, end_date, format_type)
         else:
             response = generate_monthly_report(report_type, start_date, end_date, format_type)
-        
+
         return response
     except Exception as e:
         flash(f'Error generating report: {str(e)}', 'error')
@@ -294,12 +298,12 @@ def admin():
     if not check_permissions(current_user.role, ['admin']):
         flash('You do not have permission to access this page', 'error')
         return redirect(url_for('dashboard'))
-    
+
     users = User.query.all()
     customers = Customer.query.all()
     wells = Well.query.all()
     tanks = WaterTank.query.all()
-    
+
     return render_template('admin.html', users=users, customers=customers, wells=wells, tanks=tanks)
 
 @app.route('/api/dashboard-data')
@@ -310,7 +314,7 @@ def dashboard_data():
         # Get date range from request
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
-        
+
         if start_date_str and end_date_str:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
@@ -318,7 +322,7 @@ def dashboard_data():
             days = int(request.args.get('days', 30))
             end_date = date.today()
             start_date = end_date - timedelta(days=days)
-        
+
         # Well production data
         well_data = db.session.query(
             WellProduction.date,
@@ -327,13 +331,13 @@ def dashboard_data():
             WellProduction.date >= start_date,
             WellProduction.date <= end_date
         ).group_by(WellProduction.date).all()
-        
+
         # Clean water production
         clean_water_data = CleanWaterPlant.query.filter(
             CleanWaterPlant.date >= start_date,
             CleanWaterPlant.date <= end_date
         ).all()
-        
+
         # Wastewater treatment
         wastewater_data = db.session.query(
             WastewaterPlant.date,
@@ -343,7 +347,7 @@ def dashboard_data():
             WastewaterPlant.date >= start_date,
             WastewaterPlant.date <= end_date
         ).group_by(WastewaterPlant.date).all()
-        
+
         # Customer consumption
         customer_data = db.session.query(
             CustomerReading.date,
@@ -358,7 +362,7 @@ def dashboard_data():
             CustomerReading.date >= start_date,
             CustomerReading.date <= end_date
         ).group_by(CustomerReading.date).all()
-        
+
         return jsonify({
             'well_production': [{'date': str(d.date), 'production': float(d.total_production or 0)} for d in well_data],
             'clean_water': [{'date': str(d.date), 'output': float(d.clean_water_output or 0)} for d in clean_water_data],
@@ -372,7 +376,7 @@ def dashboard_data():
 @login_required
 def chart_details(chart_type):
     """Display detailed chart page for specific chart type"""
-    
+
     # Chart configuration mapping
     chart_configs = {
         'wells': {
@@ -396,12 +400,12 @@ def chart_details(chart_type):
             'description': 'Theo dõi tiêu thụ nước sạch và phát sinh nước thải của 50 khách hàng'
         }
     }
-    
+
     config = chart_configs.get(chart_type)
     if not config:
         flash('Loại biểu đồ không hợp lệ', 'error')
         return redirect(url_for('dashboard'))
-    
+
     return render_template('chart_details.html',
                            chart_type=chart_type,
                            chart_type_name=config['name'],
@@ -410,51 +414,13 @@ def chart_details(chart_type):
 
 @app.route('/api/chart-details/<chart_type>')
 @login_required
-def chart_details(chart_type):
-    """Chart details page"""
-    if not check_permissions(current_user.role, ['leadership', 'plant_manager', 'admin']):
-        flash('You do not have permission to access this page', 'error')
-        return redirect(url_for('dashboard'))
-    
-    # Chart type configurations
-    chart_configs = {
-        'wells': {
-            'name': 'Sản lượng Giếng khoan',
-            'description': 'Theo dõi sản lượng hàng ngày từ 5 giếng khoan hoạt động',
-            'icon': 'fa-water'
-        },
-        'clean-water': {
-            'name': 'Sản lượng Nhà máy Nước sạch',
-            'description': 'Sản lượng nước sạch từ giếng khoan và nước thô Jasan',
-            'icon': 'fa-tint'
-        },
-        'wastewater': {
-            'name': 'Lưu lượng Nước thải',
-            'description': 'Lưu lượng xử lý tại 2 nhà máy nước thải',
-            'icon': 'fa-recycle'
-        },
-        'customers': {
-            'name': 'Tiêu thụ Khách hàng',
-            'description': 'Theo dõi tiêu thụ nước sạch và phát sinh nước thải của 50 khách hàng',
-            'icon': 'fa-users'
-        }
-    }
-    
-    config = chart_configs.get(chart_type)
-    if not config:
-        flash('Invalid chart type', 'error')
-        return redirect(url_for('dashboard'))
-    
-    return render_template('chart_details.html', 
-                         chart_type=chart_type,
-                         chart_type_name=config['name'],
-                         def api_chart_details(chart_type):
+def api_chart_details(chart_type):
     """API endpoint for chart detail data"""
     try:
         days = request.args.get('days', 30, type=int)
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
-        
+
         # Calculate date range
         if start_date and end_date:
             start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -462,7 +428,7 @@ def chart_details(chart_type):
         else:
             end_dt = datetime.now().date()
             start_dt = end_dt - timedelta(days=days)
-        
+
         # Generate detailed data based on chart type
         if chart_type == 'wells':
             data = generate_well_production_details(start_dt, end_dt)
@@ -474,9 +440,9 @@ def chart_details(chart_type):
             data = generate_customer_details(start_dt, end_dt)
         else:
             return jsonify({'error': 'Invalid chart type'}), 400
-        
+
         return jsonify(data)
-        
+
     except Exception as e:
         logger.error(f"Error in chart details API: {str(e)}")
         return jsonify({'error': 'Lỗi khi tải dữ liệu chi tiết'}), 500
@@ -488,7 +454,7 @@ def generate_well_production_details(start_date, end_date):
     while current_date <= end_date:
         dates.append(current_date)
         current_date += timedelta(days=1)
-    
+
     chart_data = {
         'labels': [d.strftime('%d/%m') for d in dates],
         'datasets': [{
@@ -500,7 +466,7 @@ def generate_well_production_details(start_date, end_date):
             'tension': 0.4
         }]
     }
-    
+
     # Calculate summary
     total_production = sum(chart_data['datasets'][0]['data'])
     summary = {
@@ -509,7 +475,7 @@ def generate_well_production_details(start_date, end_date):
         'max': max(chart_data['datasets'][0]['data']),
         'min': min(chart_data['datasets'][0]['data'])
     }
-    
+
     # Generate table data
     table_data = []
     for i, date in enumerate(dates):
@@ -517,7 +483,7 @@ def generate_well_production_details(start_date, end_date):
             'date': date.strftime('%d/%m/%Y'),
             'production': chart_data['datasets'][0]['data'][i]
         })
-    
+
     return {
         'chart_data': chart_data,
         'summary': summary,
@@ -531,7 +497,7 @@ def generate_clean_water_details(start_date, end_date):
     while current_date <= end_date:
         dates.append(current_date)
         current_date += timedelta(days=1)
-    
+
     chart_data = {
         'labels': [d.strftime('%d/%m') for d in dates],
         'datasets': [{
@@ -542,7 +508,7 @@ def generate_clean_water_details(start_date, end_date):
             'borderWidth': 1
         }]
     }
-    
+
     total_production = sum(chart_data['datasets'][0]['data'])
     summary = {
         'total': total_production,
@@ -550,14 +516,14 @@ def generate_clean_water_details(start_date, end_date):
         'max': max(chart_data['datasets'][0]['data']),
         'min': min(chart_data['datasets'][0]['data'])
     }
-    
+
     table_data = []
     for i, date in enumerate(dates):
         table_data.append({
             'date': date.strftime('%d/%m/%Y'),
             'clean_water_output': chart_data['datasets'][0]['data'][i]
         })
-    
+
     return {
         'chart_data': chart_data,
         'summary': summary,
@@ -571,10 +537,10 @@ def generate_wastewater_details(start_date, end_date):
     while current_date <= end_date:
         dates.append(current_date)
         current_date += timedelta(days=1)
-    
+
     input_data = [random.uniform(15000, 18000) for _ in dates]
     output_data = [random.uniform(14000, 17000) for _ in dates]
-    
+
     chart_data = {
         'labels': [d.strftime('%d/%m') for d in dates],
         'datasets': [
@@ -596,17 +562,17 @@ def generate_wastewater_details(start_date, end_date):
             }
         ]
     }
-    
+
     total_input = sum(input_data)
     total_output = sum(output_data)
-    
+
     summary = {
         'total': total_input + total_output,
         'average': (total_input + total_output) / (2 * len(dates)),
         'max': max(max(input_data), max(output_data)),
         'min': min(min(input_data), min(output_data))
     }
-    
+
     table_data = []
     for i, date in enumerate(dates):
         table_data.append({
@@ -614,7 +580,7 @@ def generate_wastewater_details(start_date, end_date):
             'input_flow': input_data[i],
             'output_flow': output_data[i]
         })
-    
+
     return {
         'chart_data': chart_data,
         'summary': summary,
@@ -628,10 +594,10 @@ def generate_customer_details(start_date, end_date):
     while current_date <= end_date:
         dates.append(current_date)
         current_date += timedelta(days=1)
-    
+
     clean_water_data = [random.uniform(8000, 11000) for _ in dates]
     wastewater_data = [random.uniform(7000, 10000) for _ in dates]
-    
+
     chart_data = {
         'labels': [d.strftime('%d/%m') for d in dates],
         'datasets': [
@@ -653,17 +619,17 @@ def generate_customer_details(start_date, end_date):
             }
         ]
     }
-    
+
     total_clean = sum(clean_water_data)
     total_waste = sum(wastewater_data)
-    
+
     summary = {
         'total': total_clean + total_waste,
         'average': (total_clean + total_waste) / (2 * len(dates)),
         'max': max(max(clean_water_data), max(wastewater_data)),
         'min': min(min(clean_water_data), min(wastewater_data))
     }
-    
+
     table_data = []
     for i, date in enumerate(dates):
         table_data.append({
@@ -671,22 +637,22 @@ def generate_customer_details(start_date, end_date):
             'clean_water': clean_water_data[i],
             'wastewater': wastewater_data[i]
         })
-    
+
     return {
         'chart_data': chart_data,
         'summary': summary,
         'table_data': table_data
     }
-                         chart_icon=config['icon'])
 
 @app.route('/api/chart-details/<chart_type>')
 @login_required
+def api_chart_details(chart_type):
     """API endpoint for detailed chart data"""
     try:
         # Get date range
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
-        
+
         if start_date_str and end_date_str:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
@@ -694,7 +660,7 @@ def generate_customer_details(start_date, end_date):
             days = int(request.args.get('days', 30))
             end_date = date.today()
             start_date = end_date - timedelta(days=days)
-        
+
         if chart_type == 'wells':
             return get_wells_detail_data(start_date, end_date)
         elif chart_type == 'clean-water':
@@ -705,7 +671,7 @@ def generate_customer_details(start_date, end_date):
             return get_customers_detail_data(start_date, end_date)
         else:
             return jsonify({'error': 'Invalid chart type'}), 400
-            
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -722,25 +688,25 @@ def get_wells_detail_data(start_date, end_date):
         WellProduction.date <= end_date,
         Well.is_active == True
     ).order_by(WellProduction.date, Well.code).all()
-    
+
     # Group data by date and well
     wells_by_date = {}
     well_names = {}
-    
+
     for item in well_data:
         date_str = item.date.strftime('%d/%m')
         if date_str not in wells_by_date:
             wells_by_date[date_str] = {}
         wells_by_date[date_str][item.code] = float(item.production or 0)
         well_names[item.code] = item.name
-    
+
     # Prepare chart data
     labels = sorted(wells_by_date.keys(), key=lambda x: datetime.strptime(x, '%d/%m'))
     datasets = []
-    
+
     colors = ['rgb(54, 162, 235)', 'rgb(255, 99, 132)', 'rgb(75, 192, 192)', 
               'rgb(255, 206, 86)', 'rgb(153, 102, 255)']
-    
+
     for i, well_code in enumerate(sorted(well_names.keys())):
         data = [wells_by_date.get(date, {}).get(well_code, 0) for date in labels]
         datasets.append({
@@ -751,23 +717,23 @@ def get_wells_detail_data(start_date, end_date):
             'fill': False,
             'tension': 0.4
         })
-    
+
     chart_data = {
         'labels': labels,
         'datasets': datasets
     }
-    
+
     # Summary statistics
     total_production = sum([sum(day.values()) for day in wells_by_date.values()])
     days_count = len(wells_by_date)
-    
+
     summary = {
         'total': total_production,
         'average': total_production / days_count if days_count > 0 else 0,
         'max': max([sum(day.values()) for day in wells_by_date.values()]) if wells_by_date else 0,
         'min': min([sum(day.values()) for day in wells_by_date.values() if sum(day.values()) > 0]) if wells_by_date else 0
     }
-    
+
     # Table data
     table_data = []
     for date in labels:
@@ -780,7 +746,7 @@ def get_wells_detail_data(start_date, end_date):
             total += value
         row['total'] = total
         table_data.append(row)
-    
+
     return jsonify({
         'chart_data': chart_data,
         'summary': summary,
@@ -793,12 +759,12 @@ def get_clean_water_detail_data(start_date, end_date):
         CleanWaterPlant.date >= start_date,
         CleanWaterPlant.date <= end_date
     ).order_by(CleanWaterPlant.date).all()
-    
+
     # Prepare chart data
     labels = [item.date.strftime('%d/%m') for item in clean_water_data]
     clean_output = [float(item.clean_water_output or 0) for item in clean_water_data]
     raw_jasan = [float(item.raw_water_jasan or 0) for item in clean_water_data]
-    
+
     chart_data = {
         'labels': labels,
         'datasets': [
@@ -820,19 +786,19 @@ def get_clean_water_detail_data(start_date, end_date):
             }
         ]
     }
-    
+
     # Summary statistics
     total_clean = sum(clean_output)
     total_raw = sum(raw_jasan)
     days_count = len(clean_output)
-    
+
     summary = {
         'total': total_clean + total_raw,
         'average': (total_clean + total_raw) / days_count if days_count > 0 else 0,
         'max': max(clean_output + raw_jasan) if clean_output + raw_jasan else 0,
         'min': min([x for x in clean_output + raw_jasan if x > 0]) if clean_output + raw_jasan else 0
     }
-    
+
     # Table data
     table_data = []
     for item in clean_water_data:
@@ -845,7 +811,7 @@ def get_clean_water_detail_data(start_date, end_date):
             'naoh_usage': float(item.naoh_usage or 0),
             'polymer_usage': float(item.polymer_usage or 0)
         })
-    
+
     return jsonify({
         'chart_data': chart_data,
         'summary': summary,
@@ -867,26 +833,26 @@ def get_wastewater_detail_data(start_date, end_date):
         WastewaterPlant.date >= start_date,
         WastewaterPlant.date <= end_date
     ).order_by(WastewaterPlant.date, WastewaterPlant.plant_number).all()
-    
+
     # Group data by date and plant
     plants_by_date = {}
-    
+
     for item in wastewater_data:
         date_str = item.date.strftime('%d/%m')
         if date_str not in plants_by_date:
             plants_by_date[date_str] = {'plant1_input': 0, 'plant1_output': 0, 
                                        'plant2_input': 0, 'plant2_output': 0}
-        
+
         if item.plant_number == 1:
             plants_by_date[date_str]['plant1_input'] = float(item.input_flow_tqt or 0)
             plants_by_date[date_str]['plant1_output'] = float(item.output_flow_tqt or 0)
         else:
             plants_by_date[date_str]['plant2_input'] = float(item.input_flow_tqt or 0)
             plants_by_date[date_str]['plant2_output'] = float(item.output_flow_tqt or 0)
-    
+
     # Prepare chart data
     labels = sorted(plants_by_date.keys(), key=lambda x: datetime.strptime(x, '%d/%m'))
-    
+
     chart_data = {
         'labels': labels,
         'datasets': [
@@ -924,12 +890,12 @@ def get_wastewater_detail_data(start_date, end_date):
             }
         ]
     }
-    
+
     # Summary statistics
     total_input = sum([day['plant1_input'] + day['plant2_input'] for day in plants_by_date.values()])
     total_output = sum([day['plant1_output'] + day['plant2_output'] for day in plants_by_date.values()])
     days_count = len(plants_by_date)
-    
+
     summary = {
         'total': total_input + total_output,
         'average': (total_input + total_output) / days_count if days_count > 0 else 0,
@@ -937,7 +903,7 @@ def get_wastewater_detail_data(start_date, end_date):
                    for day in plants_by_date.values()]) if plants_by_date else 0,
         'min': 0
     }
-    
+
     # Table data
     table_data = []
     for item in wastewater_data:
@@ -951,7 +917,7 @@ def get_wastewater_detail_data(start_date, end_date):
             'electricity': float(item.electricity or 0),
             'chemical_usage': float(item.chemical_usage or 0)
         })
-    
+
     return jsonify({
         'chart_data': chart_data,
         'summary': summary,
@@ -974,12 +940,12 @@ def get_customers_detail_data(start_date, end_date):
         CustomerReading.date >= start_date,
         CustomerReading.date <= end_date
     ).group_by(CustomerReading.date).order_by(CustomerReading.date).all()
-    
+
     # Prepare chart data
     labels = [item.date.strftime('%d/%m') for item in customer_data]
     clean_water_values = [float(item.clean_water or 0) for item in customer_data]
     wastewater_values = [float(item.wastewater or 0) for item in customer_data]
-    
+
     chart_data = {
         'labels': labels,
         'datasets': [
@@ -1001,19 +967,19 @@ def get_customers_detail_data(start_date, end_date):
             }
         ]
     }
-    
+
     # Summary statistics
     total_clean = sum(clean_water_values)
     total_wastewater = sum(wastewater_values)
     days_count = len(clean_water_values)
-    
+
     summary = {
         'total': total_clean + total_wastewater,
         'average': (total_clean + total_wastewater) / days_count if days_count > 0 else 0,
         'max': max(clean_water_values + wastewater_values) if clean_water_values + wastewater_values else 0,
         'min': min([x for x in clean_water_values + wastewater_values if x > 0]) if clean_water_values + wastewater_values else 0
     }
-    
+
     # Table data
     table_data = []
     for item in customer_data:
@@ -1023,7 +989,7 @@ def get_customers_detail_data(start_date, end_date):
             'wastewater': float(item.wastewater or 0),
             'total': float(item.clean_water or 0) + float(item.wastewater or 0)
         })
-    
+
     return jsonify({
         'chart_data': chart_data,
         'summary': summary,
@@ -1037,29 +1003,29 @@ def kpi_data():
     try:
         today = date.today()
         month_start = today.replace(day=1)
-        
+
         # Today's production
         today_well_production = db.session.query(
             db.func.sum(WellProduction.production)
         ).filter(WellProduction.date == today).scalar() or 0
-        
+
         # Monthly production
         month_well_production = db.session.query(
             db.func.sum(WellProduction.production)
         ).filter(WellProduction.date >= month_start).scalar() or 0
-        
+
         # Clean water output today
         today_clean_water = CleanWaterPlant.query.filter_by(date=today).first()
         today_clean_output = today_clean_water.clean_water_output if today_clean_water else 0
-        
+
         # Wastewater treatment today
         today_wastewater = db.session.query(
             db.func.sum(WastewaterPlant.input_flow_tqt)
         ).filter(WastewaterPlant.date == today).scalar() or 0
-        
+
         # Active customers
         active_customers = Customer.query.filter_by(is_active=True).count()
-        
+
         return jsonify({
             'today_well_production': float(today_well_production),
             'month_well_production': float(month_well_production),
