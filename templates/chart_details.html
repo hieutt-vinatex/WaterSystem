@@ -62,8 +62,8 @@
         </div>
     </div>
 
-    <!-- Chart and Summary Section -->
-    <div class="row">
+    <!-- Chart and Summary -->
+    <div class="row mb-4">
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
@@ -80,29 +80,31 @@
                     <h6><i class="fas fa-info-circle me-2"></i>Thống kê tổng quan</h6>
                 </div>
                 <div class="card-body">
-                    <div class="row text-center">
+                    <div class="row">
                         <div class="col-6">
-                            <div class="border rounded p-2 mb-2">
+                            <div class="text-center p-3 bg-primary bg-opacity-10 rounded">
+                                <h4 id="total-value" class="text-primary">0</h4>
                                 <small class="text-muted">Tổng cộng</small>
-                                <h5 id="summary-total" class="text-primary">0</h5>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="border rounded p-2 mb-2">
+                            <div class="text-center p-3 bg-info bg-opacity-10 rounded">
+                                <h4 id="average-value" class="text-info">0</h4>
                                 <small class="text-muted">Trung bình/ngày</small>
-                                <h5 id="summary-average" class="text-info">0</h5>
                             </div>
                         </div>
+                    </div>
+                    <div class="row mt-3">
                         <div class="col-6">
-                            <div class="border rounded p-2 mb-2">
+                            <div class="text-center p-3 bg-success bg-opacity-10 rounded">
+                                <h4 id="max-value" class="text-success">0</h4>
                                 <small class="text-muted">Cao nhất</small>
-                                <h5 id="summary-max" class="text-success">0</h5>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="border rounded p-2">
+                            <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
+                                <h4 id="min-value" class="text-warning">0</h4>
                                 <small class="text-muted">Thấp nhất</small>
-                                <h5 id="summary-min" class="text-warning">0</h5>
                             </div>
                         </div>
                     </div>
@@ -112,7 +114,7 @@
     </div>
 
     <!-- Data Table -->
-    <div class="row mt-4">
+    <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
@@ -120,85 +122,13 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-striped" id="dataTable">
+                        <table class="table table-striped" id="data-table">
                             <thead>
-                                <tr id="tableHeader"></tr>
-                            </thead>
-                            <tbody id="tableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>t and Data Table -->
-    <div class="row">
-        <div class="col-lg-8">
-            <div class="card">
-                <div class="card-header">
-                    <h6><i class="fas fa-chart-line me-2"></i>Biểu đồ chi tiết</h6>
-                </div>
-                <div class="card-body" style="height: 500px;">
-                    <canvas id="detailChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-4">
-            <div class="card">
-                <div class="card-header">
-                    <h6><i class="fas fa-table me-2"></i>Thống kê tóm tắt</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <div class="border-end">
-                                <h5 class="text-primary" id="summary-total">0</h5>
-                                <small class="text-muted">Tổng cộng</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <h5 class="text-success" id="summary-average">0</h5>
-                            <small class="text-muted">Trung bình/ngày</small>
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <div class="border-end">
-                                <h6 class="text-info" id="summary-max">0</h6>
-                                <small class="text-muted">Cao nhất</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <h6 class="text-warning" id="summary-min">0</h6>
-                            <small class="text-muted">Thấp nhất</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Data Table -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6><i class="fas fa-table me-2"></i>Bảng dữ liệu chi tiết</h6>
-                    <div>
-                        <button class="btn btn-sm btn-outline-primary" onclick="toggleTableView()">
-                            <i class="fas fa-expand me-1"></i>Toàn màn hình
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive" style="max-height: 400px;">
-                        <table class="table table-striped table-hover" id="dataTable">
-                            <thead class="table-dark sticky-top">
-                                <tr id="tableHeader">
+                                <tr id="table-headers">
                                     <!-- Headers will be populated by JavaScript -->
                                 </tr>
                             </thead>
-                            <tbody id="tableBody">
+                            <tbody id="table-body">
                                 <!-- Data will be populated by JavaScript -->
                             </tbody>
                         </table>
@@ -208,37 +138,40 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Chart details functionality
 let detailChart = null;
 const chartType = '{{ chart_type }}';
 
-// Initialize page
+// Chart colors configuration
+const chartTextColor = '#333333';
+const chartGridColor = '#e0e0e0';
+
 document.addEventListener('DOMContentLoaded', function() {
-    setupDateInputs();
+    setupDatePickers();
     loadChartDetails();
+
+    // Period selector change handler
+    document.getElementById('detail-period').addEventListener('change', function() {
+        if (this.value) {
+            updateDetailChart();
+            // Clear custom dates
+            document.getElementById('detail-start-date').value = '';
+            document.getElementById('detail-end-date').value = '';
+        }
+    });
 });
 
-function setupDateInputs() {
+function setupDatePickers() {
     const today = new Date();
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
-    
+
     document.getElementById('detail-start-date').value = thirtyDaysAgo.toISOString().split('T')[0];
     document.getElementById('detail-end-date').value = today.toISOString().split('T')[0];
-}
-
-function updateDetailChart() {
-    const period = document.getElementById('detail-period').value;
-    const startDate = document.getElementById('detail-start-date').value;
-    const endDate = document.getElementById('detail-end-date').value;
-    
-    if (period) {
-        loadChartDetails(period);
-    } else if (startDate && endDate) {
-        loadChartDetails(null, startDate, endDate);
-    }
 }
 
 async function loadChartDetails(days = 30, startDate = null, endDate = null) {
@@ -247,24 +180,19 @@ async function loadChartDetails(days = 30, startDate = null, endDate = null) {
         if (startDate && endDate) {
             url = `/api/chart-details/${chartType}?start_date=${startDate}&end_date=${endDate}`;
         }
-        
+
         const response = await fetch(url);
         const data = await response.json();
-        
+
         if (data.error) {
             console.error('Chart Details Error:', data.error);
             return;
         }
-        
-        // Create the detail chart
+
         createDetailChart(data.chart_data);
-        
-        // Update summary
         updateSummary(data.summary);
-        
-        // Update table
         updateTable(data.table_data);
-        
+
     } catch (error) {
         console.error('Error loading chart details:', error);
     }
@@ -273,12 +201,11 @@ async function loadChartDetails(days = 30, startDate = null, endDate = null) {
 function createDetailChart(chartData) {
     const ctx = document.getElementById('detailChart');
     if (!ctx) return;
-    
-    // Destroy existing chart
+
     if (detailChart) {
         detailChart.destroy();
     }
-    
+
     detailChart = new Chart(ctx, {
         type: 'line',
         data: chartData,
@@ -292,7 +219,10 @@ function createDetailChart(chartData) {
                 },
                 legend: {
                     display: true,
-                    position: 'bottom'
+                    position: 'bottom',
+                    labels: {
+                        color: chartTextColor
+                    }
                 },
                 tooltip: {
                     callbacks: {
@@ -309,13 +239,27 @@ function createDetailChart(chartData) {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Lưu lượng (m³)'
+                        text: 'Lưu lượng (m³)',
+                        color: chartTextColor
+                    },
+                    ticks: {
+                        color: chartTextColor
+                    },
+                    grid: {
+                        color: chartGridColor
                     }
                 },
                 x: {
                     title: {
                         display: true,
-                        text: 'Ngày'
+                        text: 'Ngày',
+                        color: chartTextColor
+                    },
+                    ticks: {
+                        color: chartTextColor
+                    },
+                    grid: {
+                        color: chartGridColor
                     }
                 }
             },
@@ -328,45 +272,43 @@ function createDetailChart(chartData) {
 }
 
 function updateSummary(summary) {
-    document.getElementById('summary-total').textContent = formatNumber(summary.total);
-    document.getElementById('summary-average').textContent = formatNumber(summary.average);
-    document.getElementById('summary-max').textContent = formatNumber(summary.max);
-    document.getElementById('summary-min').textContent = formatNumber(summary.min);
+    document.getElementById('total-value').textContent = formatNumber(summary.total);
+    document.getElementById('average-value').textContent = formatNumber(summary.average);
+    document.getElementById('max-value').textContent = formatNumber(summary.max);
+    document.getElementById('min-value').textContent = formatNumber(summary.min);
 }
 
 function updateTable(tableData) {
-    const headerRow = document.getElementById('tableHeader');
-    const tableBody = document.getElementById('tableBody');
-    
-    if (!tableData || tableData.length === 0) {
-        headerRow.innerHTML = '<th>Không có dữ liệu</th>';
-        tableBody.innerHTML = '<tr><td>Không có dữ liệu để hiển thị</td></tr>';
+    const headersRow = document.getElementById('table-headers');
+    const tableBody = document.getElementById('table-body');
+
+    // Clear existing content
+    headersRow.innerHTML = '';
+    tableBody.innerHTML = '';
+
+    if (tableData.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="100%" class="text-center">Không có dữ liệu</td></tr>';
         return;
     }
-    
-    // Create header based on chart type and first data row
-    const firstRow = tableData[0];
-    const headers = Object.keys(firstRow);
-    
-    headerRow.innerHTML = '';
+
+    // Create headers
+    const headers = Object.keys(tableData[0]);
     headers.forEach(header => {
         const th = document.createElement('th');
-        th.textContent = getColumnLabel(header);
-        headerRow.appendChild(th);
+        th.textContent = getHeaderName(header);
+        headersRow.appendChild(th);
     });
-    
+
     // Create table rows
-    tableBody.innerHTML = '';
     tableData.forEach(row => {
         const tr = document.createElement('tr');
         headers.forEach(header => {
             const td = document.createElement('td');
             const value = row[header];
-            
-            if (typeof value === 'number' && header !== 'plant_number') {
+            if (typeof value === 'number') {
                 td.textContent = formatNumber(value);
             } else {
-                td.textContent = value || '-';
+                td.textContent = value;
             }
             tr.appendChild(td);
         });
@@ -374,179 +316,48 @@ function updateTable(tableData) {
     });
 }
 
-function getColumnLabel(columnName) {
-    const labels = {
-        'date': 'Ngày',
-        'total': 'Tổng cộng',
-        'clean_water': 'Nước sạch (m³)',
-        'wastewater': 'Nước thải (m³)',
-        'clean_water_output': 'Nước sạch sản xuất (m³)',
-        'raw_water_jasan': 'Nước thô Jasan (m³)',
-        'electricity': 'Điện (kWh)',
-        'pac_usage': 'PAC (kg)',
-        'naoh_usage': 'NaOH (kg)',
-        'polymer_usage': 'Polymer (kg)',
-        'plant_number': 'Nhà máy',
-        'input_flow': 'Đầu vào (m³)',
-        'output_flow': 'Đầu ra (m³)',
-        'wastewater_meter': 'Đồng hồ nước thải (m³)',
-        'sludge_output': 'Bùn thải (m³)',
-        'chemical_usage': 'Hóa chất (kg)',
-        'GK1': 'GK1 (m³)',
-        'GK2': 'GK2 (m³)',
-        'GK3': 'GK3 (m³)',
-        'GK5': 'GK5 (m³)',
-        'GK5-TT': 'GK5-TT (m³)'
-    };
-    return labels[columnName] || columnName;
-}
-
-function formatNumber(num) {
-    if (typeof num !== 'number') return '0';
-    return new Intl.NumberFormat('vi-VN').format(Math.round(num));
-}
-
-function exportData() {
-    // Simple CSV export
-    const table = document.getElementById('dataTable');
-    let csv = '';
-    
-    // Get headers
-    const headers = table.querySelectorAll('thead th');
-    const headerRow = Array.from(headers).map(th => th.textContent).join(',');
-    csv += headerRow + '\n';
-    
-    // Get data rows
-    const rows = table.querySelectorAll('tbody tr');
-    rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        const rowData = Array.from(cells).map(td => td.textContent).join(',');
-        csv += rowData + '\n';
-    });
-    
-    // Download
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = `${chartType}_data_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-}, data.error);
-            return;
-        }
-        
-        createDetailChart(data.chart_data);
-        updateSummaryStats(data.summary);
-        updateDataTable(data.table_data);
-        
-    } catch (error) {
-        console.error('Error loading chart details:', error);
-    }
-}
-
-function createDetailChart(data) {
-    const ctx = document.getElementById('detailChart');
-    if (!ctx) return;
-    
-    if (detailChart) {
-        detailChart.destroy();
-    }
-    
-    detailChart = new Chart(ctx, {
-        type: 'line',
-        data: data,
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 2,
-            plugins: {
-                title: {
-                    display: false
-                },
-                legend: {
-                    display: true,
-                    position: 'top'
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Lưu lượng (m³)'
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Ngày'
-                    }
-                }
-            }
-        }
-    });
-}
-
-function updateSummaryStats(summary) {
-    document.getElementById('summary-total').textContent = formatNumber(summary.total || 0) + ' m³';
-    document.getElementById('summary-average').textContent = formatNumber(summary.average || 0) + ' m³';
-    document.getElementById('summary-max').textContent = formatNumber(summary.max || 0) + ' m³';
-    document.getElementById('summary-min').textContent = formatNumber(summary.min || 0) + ' m³';
-}
-
-function updateDataTable(tableData) {
-    const header = document.getElementById('tableHeader');
-    const body = document.getElementById('tableBody');
-    
-    // Clear existing content
-    header.innerHTML = '';
-    body.innerHTML = '';
-    
-    if (!tableData || tableData.length === 0) {
-        body.innerHTML = '<tr><td colspan="100%" class="text-center">Không có dữ liệu</td></tr>';
-        return;
-    }
-    
-    // Create headers
-    const headers = Object.keys(tableData[0]);
-    headers.forEach(header_name => {
-        const th = document.createElement('th');
-        th.textContent = formatHeaderName(header_name);
-        header.appendChild(th);
-    });
-    
-    // Create rows
-    tableData.forEach(row => {
-        const tr = document.createElement('tr');
-        headers.forEach(header_name => {
-            const td = document.createElement('td');
-            const value = row[header_name];
-            if (typeof value === 'number' && header_name !== 'date') {
-                td.textContent = formatNumber(value);
-            } else {
-                td.textContent = value || '';
-            }
-            tr.appendChild(td);
-        });
-        body.appendChild(tr);
-    });
-}
-
-function formatHeaderName(name) {
+function getHeaderName(header) {
     const headerMap = {
         'date': 'Ngày',
-        'production': 'Sản lượng (m³)',
-        'consumption': 'Tiêu thụ (m³)',
-        'clean_water': 'Nước sạch (m³)',
-        'wastewater': 'Nước thải (m³)',
-        'well_name': 'Tên giếng',
-        'customer_name': 'Tên khách hàng'
+        'production': 'Sản lượng',
+        'clean_water_output': 'Nước sạch',
+        'raw_water_jasan': 'Nước thô Jasan',
+        'electricity': 'Điện',
+        'pac_usage': 'PAC',
+        'naoh_usage': 'NaOH',
+        'polymer_usage': 'Polymer',
+        'input_flow': 'Đầu vào',
+        'output_flow': 'Đầu ra',
+        'plant_number': 'Nhà máy',
+        'wastewater_meter': 'Đồng hồ nước thải',
+        'sludge_output': 'Bùn thải',
+        'chemical_usage': 'Hóa chất',
+        'clean_water': 'Nước sạch',
+        'wastewater': 'Nước thải',
+        'total': 'Tổng cộng',
+        'GK1': 'Giếng khoan 1',
+        'GK2': 'Giếng khoan 2',
+        'GK3': 'Giếng khoan 3',
+        'GK5': 'Giếng khoan 5',
+        'GK5-TT': 'Giếng khoan 5-TT'
     };
-    return headerMap[name] || name;
+    return headerMap[header] || header;
+}
+
+function updateDetailChart() {
+    const period = document.getElementById('detail-period').value;
+    const startDate = document.getElementById('detail-start-date').value;
+    const endDate = document.getElementById('detail-end-date').value;
+
+    if (startDate && endDate) {
+        if (new Date(startDate) > new Date(endDate)) {
+            alert('Ngày bắt đầu không thể sau ngày kết thúc');
+            return;
+        }
+        loadChartDetails(null, startDate, endDate);
+    } else if (period) {
+        loadChartDetails(parseInt(period));
+    }
 }
 
 function formatNumber(num) {
@@ -554,18 +365,25 @@ function formatNumber(num) {
 }
 
 function exportData() {
-    window.open(`/api/export-chart-data/${chartType}`, '_blank');
-}
+    const table = document.getElementById('data-table');
+    const rows = table.querySelectorAll('tr');
 
-function toggleTableView() {
-    const card = document.querySelector('.table-responsive').closest('.card');
-    if (card.classList.contains('position-fixed')) {
-        card.classList.remove('position-fixed');
-        card.style.cssText = '';
-    } else {
-        card.classList.add('position-fixed');
-        card.style.cssText = 'top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1050;';
-    }
+    let csvContent = '';
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('th, td');
+        const rowData = Array.from(cells).map(cell => cell.textContent);
+        csvContent += rowData.join(',') + '\n';
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chart_data_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 }
 </script>
 {% endblock %}

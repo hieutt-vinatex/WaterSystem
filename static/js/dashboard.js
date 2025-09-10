@@ -9,12 +9,12 @@ async function loadKPIData() {
     try {
         const response = await fetch('/api/kpi-data');
         const data = await response.json();
-        
+
         if (data.error) {
             console.error('KPI Data Error:', data.error);
             return;
         }
-        
+
         kpiData = data;
         updateKPICards();
     } catch (error) {
@@ -30,7 +30,7 @@ function updateKPICards() {
         'today-wastewater': kpiData.today_wastewater || 0,
         'active-customers': kpiData.active_customers || 0
     };
-    
+
     Object.keys(elements).forEach(id => {
         const element = document.getElementById(id);
         if (element) {
@@ -53,13 +53,13 @@ function formatNumber(num) {
 function loadSystemDiagram() {
     const diagramContainer = document.getElementById('water-system-svg');
     if (!diagramContainer) return;
-    
+
     // Load the SVG diagram
     fetch('/static/images/water_system_diagram.svg')
         .then(response => response.text())
         .then(svgContent => {
             diagramContainer.innerHTML = svgContent;
-            
+
             // Set SVG to fill container
             const svg = diagramContainer.querySelector('svg');
             if (svg) {
@@ -69,7 +69,7 @@ function loadSystemDiagram() {
                 svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
                 svg.setAttribute('viewBox', svg.getAttribute('viewBox') || '0 0 800 600');
             }
-            
+
             makeSystemDiagramInteractive();
             systemDiagramLoaded = true;
         })
@@ -129,20 +129,20 @@ function createFallbackDiagram() {
 // Make system diagram interactive
 function makeSystemDiagramInteractive() {
     const zones = document.querySelectorAll('.diagram-zone, [data-zone]');
-    
+
     zones.forEach(zone => {
         zone.style.cursor = 'pointer';
-        
+
         zone.addEventListener('click', function() {
             const zoneType = this.getAttribute('data-zone') || this.className.split(' ').find(c => c.includes('zone'));
             handleZoneClick(zoneType);
         });
-        
+
         zone.addEventListener('mouseenter', function() {
             this.style.transform = 'scale(1.05)';
             showZoneTooltip(this);
         });
-        
+
         zone.addEventListener('mouseleave', function() {
             this.style.transform = 'scale(1)';
             hideZoneTooltip();
@@ -153,7 +153,7 @@ function makeSystemDiagramInteractive() {
 // Handle zone clicks
 function handleZoneClick(zoneType) {
     console.log('Zone clicked:', zoneType);
-    
+
     // Route to appropriate data entry section
     switch(zoneType) {
         case 'wells':
@@ -189,7 +189,7 @@ function showZoneTooltip(element) {
     tooltip.className = 'position-absolute bg-dark text-white p-2 rounded';
     tooltip.style.cssText = 'z-index: 1000; top: -40px; left: 50%; transform: translateX(-50%); font-size: 12px; pointer-events: none;';
     tooltip.innerHTML = 'Click để nhập dữ liệu';
-    
+
     element.style.position = 'relative';
     element.appendChild(tooltip);
 }
@@ -213,7 +213,7 @@ function showZoneDetails(zoneType) {
 function startAutoRefresh() {
     // Refresh KPI data every 5 minutes
     setInterval(loadKPIData, 5 * 60 * 1000);
-    
+
     // Refresh charts every 10 minutes if they exist
     if (typeof loadDashboardCharts === 'function') {
         setInterval(loadDashboardCharts, 10 * 60 * 1000);
@@ -223,7 +223,7 @@ function startAutoRefresh() {
 // Quick action handlers
 function setupQuickActions() {
     const quickActionBtns = document.querySelectorAll('[data-quick-action]');
-    
+
     quickActionBtns.forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
@@ -256,13 +256,13 @@ function handleQuickAction(action) {
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard initializing...');
-    
+
     // Setup auto-refresh
     startAutoRefresh();
-    
+
     // Setup quick actions
     setupQuickActions();
-    
+
     // Add click handlers for system zones if not loaded via SVG
     setTimeout(() => {
         if (!systemDiagramLoaded) {
