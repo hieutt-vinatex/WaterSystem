@@ -295,69 +295,12 @@
     to { transform: rotate(360deg); }
 }
 
-/* Dark theme text color fixes */
-body {
-    color: #e9ecef !important;
+/* Ensure chart labels are visible */
+.chart-container {
+    color: #212529 !important;
 }
 
-.card-title,
-.card-header h5,
-.card-header h6,
-.form-label,
-label {
-    color: #f8f9fa !important;
-}
-
-.text-muted {
-    color: #adb5bd !important;
-}
-
-.card-text,
-.card-body p,
-.card-body small {
-    color: #e9ecef !important;
-}
-
-/* Chart text colors */
-.chart-title {
-    color: #f8f9fa !important;
-}
-
-/* Table text colors */
-.table {
-    color: #e9ecef !important;
-}
-
-.table th {
-    color: #f8f9fa !important;
-    border-color: #495057 !important;
-}
-
-.table td {
-    border-color: #495057 !important;
-}
-
-/* Form input text colors */
-.form-control {
-    color: #f8f9fa !important;
-    background-color: #495057 !important;
-    border-color: #6c757d !important;
-}
-
-.form-control:focus {
-    color: #f8f9fa !important;
-    background-color: #495057 !important;
-    border-color: #86b7fe !important;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
-}
-
-.form-select {
-    color: #f8f9fa !important;
-    background-color: #495057 !important;
-    border-color: #6c757d !important;
-}
-
-/* Badge colors for dark theme */
+/* Badge colors */
 .badge {
     color: #212529 !important;
 }

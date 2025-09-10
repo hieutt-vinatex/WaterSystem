@@ -2,9 +2,9 @@
 
 // Chart.js default configuration
 Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-// Define chart text and grid colors for better visibility
-const chartTextColor = '#1a5a96'; // Dark blue for better visibility on white background
-const chartGridColor = '#dee2e6'; // Light gray for grid lines
+// Chart colors configuration
+const chartTextColor = '#212529';
+const chartGridColor = '#dee2e6';
 Chart.defaults.color = chartTextColor;
 
 // Global chart instances
