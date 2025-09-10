@@ -644,36 +644,7 @@ def generate_customer_details(start_date, end_date):
         'table_data': table_data
     }
 
-@app.route('/api/chart-details/<chart_type>')
-@login_required
-def api_chart_details(chart_type):
-    """API endpoint for detailed chart data"""
-    try:
-        # Get date range
-        start_date_str = request.args.get('start_date')
-        end_date_str = request.args.get('end_date')
 
-        if start_date_str and end_date_str:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        else:
-            days = int(request.args.get('days', 30))
-            end_date = date.today()
-            start_date = end_date - timedelta(days=days)
-
-        if chart_type == 'wells':
-            return get_wells_detail_data(start_date, end_date)
-        elif chart_type == 'clean-water':
-            return get_clean_water_detail_data(start_date, end_date)
-        elif chart_type == 'wastewater':
-            return get_wastewater_detail_data(start_date, end_date)
-        elif chart_type == 'customers':
-            return get_customers_detail_data(start_date, end_date)
-        else:
-            return jsonify({'error': 'Invalid chart type'}), 400
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 def get_wells_detail_data(start_date, end_date):
     """Get detailed well production data"""
