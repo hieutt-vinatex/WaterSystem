@@ -397,7 +397,7 @@
                                              data-tank-id="{{ tank.id }}" data-capacity="{{ tank.capacity }}">0%</div>
                                     </div>
                                     <small class="text-muted">
-                                        Dung tích tối đa: {{ "{:,.0f}"|format(tank.capacity) }} m³
+                                        Dung tích tối đa: {{ tank.capacity|round|int }} m³
                                     </small>
                                 </div>
                             </div>

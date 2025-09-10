@@ -164,12 +164,12 @@
     .system-diagram {
         min-height: 300px;
     }
-    
+
     .diagram-zone {
         font-size: 10px;
         padding: 5px;
     }
-    
+
     .kpi-card .card-body h4 {
         font-size: 1.5rem;
     }
@@ -180,12 +180,12 @@
     .navbar, .btn, .card-header {
         display: none !important;
     }
-    
+
     .card {
         border: 1px solid #000 !important;
         box-shadow: none !important;
     }
-    
+
     .table {
         font-size: 12px;
     }
@@ -223,4 +223,153 @@
 
 .min-height-400 {
     min-height: 400px;
+}
+
+/* Dashboard specific styles */
+.dashboard-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px 0;
+}
+
+.stat-card {
+    transition: transform 0.2s ease-in-out;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+/* Chart containers */
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* Data entry form styles */
+.form-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+/* Custom button styles */
+.btn-gradient {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border: none;
+    color: white;
+}
+
+.btn-gradient:hover {
+    background: linear-gradient(45deg, #764ba2, #667eea);
+    color: white;
+}
+
+/* Animation for loading states */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Dark theme text color fixes */
+body {
+    color: #e9ecef !important;
+}
+
+.card-title,
+.card-header h5,
+.card-header h6,
+.form-label,
+label {
+    color: #f8f9fa !important;
+}
+
+.text-muted {
+    color: #adb5bd !important;
+}
+
+.card-text,
+.card-body p,
+.card-body small {
+    color: #e9ecef !important;
+}
+
+/* Chart text colors */
+.chart-title {
+    color: #f8f9fa !important;
+}
+
+/* Table text colors */
+.table {
+    color: #e9ecef !important;
+}
+
+.table th {
+    color: #f8f9fa !important;
+    border-color: #495057 !important;
+}
+
+.table td {
+    border-color: #495057 !important;
+}
+
+/* Form input text colors */
+.form-control {
+    color: #f8f9fa !important;
+    background-color: #495057 !important;
+    border-color: #6c757d !important;
+}
+
+.form-control:focus {
+    color: #f8f9fa !important;
+    background-color: #495057 !important;
+    border-color: #86b7fe !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+}
+
+.form-select {
+    color: #f8f9fa !important;
+    background-color: #495057 !important;
+    border-color: #6c757d !important;
+}
+
+/* Badge colors for dark theme */
+.badge {
+    color: #212529 !important;
+}
+
+.badge.bg-warning {
+    color: #212529 !important;
+}
+
+.badge.bg-info {
+    color: #fff !important;
+}
+
+.badge.bg-success {
+    color: #fff !important;
 }
