@@ -36,11 +36,11 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if current_user.is_authenticated %}
-                    <li class="nav-item">
+                    <!-- <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('dashboard') }}">
                             <i class="fas fa-chart-line me-1"></i> Dashboard
                         </a>
-                    </li>
+                    </li> -->
                     {% if current_user.role.value in ['data_entry', 'plant_manager', 'admin'] %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('data_entry') }}">

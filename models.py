@@ -13,6 +13,7 @@ class UserRole(enum.Enum):
     CUSTOMER = "customer"
 
 class User(UserMixin, db.Model):
+    # người dùng
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -23,6 +24,7 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
 
 class Customer(db.Model):
+    # khách hàng
     id = db.Column(db.Integer, primary_key=True)
     company_name = db.Column(db.String(200), nullable=False)
     contact_person = db.Column(db.String(120))
@@ -35,6 +37,7 @@ class Customer(db.Model):
     is_active = db.Column(db.Boolean, default=True)
 
 class Well(db.Model):
+    # giếng khoan
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), unique=True, nullable=False)  # GK1, GK2, etc.
     name = db.Column(db.String(100), nullable=False)
@@ -43,12 +46,14 @@ class Well(db.Model):
     is_backup = db.Column(db.Boolean, default=False)  # GK6 is backup
 
 class WaterTank(db.Model):
+    # bể chứa nước
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     capacity = db.Column(db.Float)  # m3
     tank_type = db.Column(db.String(50))  # clean_water, raw_water
 
 class WellProduction(db.Model):
+    # SL giếng khoan
     id = db.Column(db.Integer, primary_key=True)
     well_id = db.Column(db.Integer, db.ForeignKey('well.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
@@ -57,6 +62,7 @@ class WellProduction(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
 
 class CleanWaterPlant(db.Model):
+    # nhà máy nước sạch
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
     electricity = db.Column(db.Float)  # kWh
@@ -69,6 +75,7 @@ class CleanWaterPlant(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
 
 class WaterTankLevel(db.Model):
+    # mực nước bể chứa
     id = db.Column(db.Integer, primary_key=True)
     tank_id = db.Column(db.Integer, db.ForeignKey('water_tank.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
@@ -77,6 +84,7 @@ class WaterTankLevel(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
 
 class WastewaterPlant(db.Model):
+    # nhà máy xử lý nước thải
     id = db.Column(db.Integer, primary_key=True)
     plant_number = db.Column(db.Integer, nullable=False)  # 1 or 2
     date = db.Column(db.Date, nullable=False)
@@ -90,6 +98,7 @@ class WastewaterPlant(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
 
 class CustomerReading(db.Model):
+    # chỉ số khách hàng
     id = db.Column(db.Integer, primary_key=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
@@ -100,6 +109,7 @@ class CustomerReading(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
 
 class ReportPeriod(db.Model):
+    # kỳ báo cáo
     id = db.Column(db.Integer, primary_key=True)
     period_start = db.Column(db.Date, nullable=False)  # 25th of month
     period_end = db.Column(db.Date, nullable=False)    # 25th of next month

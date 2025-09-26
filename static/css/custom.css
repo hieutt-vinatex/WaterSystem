@@ -316,7 +316,7 @@ label {
 .card-text,
 .card-body p,
 .card-body small {
-    color: #000000 !important;
+    /* color: #000000 !important; */
 }
 
 /* Chart text colors */
