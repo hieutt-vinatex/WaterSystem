@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_migrate import Migrate
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -31,7 +32,7 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-
+migrate = Migrate(app, db)
 @login_manager.user_loader
 def load_user(user_id):
     from models import User

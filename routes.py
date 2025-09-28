@@ -298,13 +298,14 @@ def admin():
     if not check_permissions(current_user.role, ['admin']):
         flash('You do not have permission to access this page', 'error')
         return redirect(url_for('dashboard'))
-
+    active_tab = session.pop('active_tab', 'users')
     users = User.query.all()
     customers = Customer.query.all()
     wells = Well.query.all()
     tanks = WaterTank.query.all()
+    active_tab=active_tab
 
-    return render_template('admin.html', users=users, customers=customers, wells=wells, tanks=tanks)
+    return render_template('admin/admin.html', users=users, customers=customers, active_tab=active_tab, wells=wells, tanks=tanks)
 
 @app.route('/api/dashboard-data')
 @login_required
@@ -1024,15 +1025,15 @@ def edit_customer(customer_id):
         except ValueError:
             customer.water_ratio = customer.water_ratio or 0
         customer.address = request.form.get('address', customer.address)
-        # customer.notes = request.form.get('notes', customer.notes)
+        customer.notes = request.form.get('notes', customer.notes)
         customer.daily_reading = True if request.form.get('daily_reading') == 'on' else False
         customer.is_active = True if request.form.get('is_active') == 'on' else False
 
         db.session.add(customer)
         db.session.commit()
         flash('Cập nhật khách hàng thành công.', 'success')
-        return redirect(url_for('admin') + '#customers')
-
+        session['active_tab'] = 'customers'
+        return redirect(url_for('admin'))
     # GET
     return render_template('edit_page/customer_edit.html', customer=customer)
 
@@ -1076,7 +1077,7 @@ def new_customer():
                 daily_reading=daily_reading,
                 is_active=is_active
             )
-            return render_template('edit_page/customer_edit.html', customer=temp)
+            return render_template('new_page/customer_new.html', customer=temp)
 
         # Enforce company name required
         if not company_name:
@@ -1092,7 +1093,7 @@ def new_customer():
                 daily_reading=daily_reading,
                 is_active=is_active
             )
-            return render_template('edit_page/customer_edit.html', customer=temp)
+            return render_template('new_page/customer_new.html', customer=temp)
 
         # Create new customer
         customer = Customer(
@@ -1109,10 +1110,11 @@ def new_customer():
         db.session.add(customer)
         db.session.commit()
         flash('Thêm khách hàng thành công.', 'success')
-        return redirect(url_for('admin') + '#customers')
+        session['active_tab'] = 'customers'
+        return redirect(url_for('admin'))
 
     empty_customer = Customer()
-    return render_template('edit_page/customer_edit.html', customer=empty_customer)
+    return render_template('new_page/customer_new.html', customer=empty_customer)
 
 # Ensure edit route renders same template (if you have edit route, use same template path)
 # @app.route('/customers/<int:customer_id>/edit', methods=['GET', 'POST'])

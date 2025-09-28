@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+
+{% block title %}Quản trị hệ thống - Hệ thống quản lý nước Phố Nối{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-cogs text-primary me-2"></i>Quản trị hệ thống</h1>
+        <p class="text-muted">Quản lý người dùng, khách hàng và cấu hình hệ thống</p>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab=='users' %}active{% endif %}" id="users-tab"
+                data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
+            <i class="fas fa-users me-2"></i>Người dùng
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab=='customers' %}active{% endif %}" id="customers-tab"
+                data-bs-toggle="tab" data-bs-target="#customers" type="button" role="tab">
+            <i class="fas fa-building me-2"></i>Khách hàng
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab=='wells' %}active{% endif %}" id="wells-tab"
+                data-bs-toggle="tab" data-bs-target="#wells" type="button" role="tab">
+            <i class="fas fa-water me-2"></i>Giếng khoan
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab=='tanks' %}active{% endif %}" id="tanks-tab"
+                data-bs-toggle="tab" data-bs-target="#tanks" type="button" role="tab">
+            <i class="fas fa-database me-2"></i>Bể chứa
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab=='settings' %}active{% endif %}" id="settings-tab"
+                data-bs-toggle="tab" data-bs-target="#settings" type="button" role="tab">
+            <i class="fas fa-cog me-2"></i>Cấu hình
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="adminTabsContent">
+    <!-- Users Tab -->
+    <div class="tab-pane fade {% if active_tab=='users' %}show active{% endif %}" id="users" role="tabpanel">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-users me-2"></i>Quản lý người dùng</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                    <i class="fas fa-plus me-2"></i>Thêm người dùng
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Tên đăng nhập</th>
+                                <th>Họ tên</th>
+                                <th>Email</th>
+                                <th>Vai trò</th>
+                                <th>Trạng thái</th>
+                                <th>Ngày tạo</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td><strong>{{ user.username }}</strong></td>
+                                <td>{{ user.full_name or '-' }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    <span class="badge bg-{% if user.role.value == 'admin' %}danger{% elif user.role.value == 'leadership' %}primary{% elif user.role.value == 'plant_manager' %}warning{% elif user.role.value == 'accounting' %}info{% else %}secondary{% endif %}">
+                                        {{ user.role.value.replace('_', ' ').title() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if user.is_active %}
+                                    <span class="badge bg-success">Hoạt động</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Vô hiệu</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else '-' }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    {% if user.id != current_user.id %}
+                                    <button class="btn btn-sm btn-outline-warning" title="Khóa/Mở khóa">
+                                        <i class="fas fa-lock"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Customers Tab -->
+    <!-- <div class="tab-pane fade" id="customers" role="tabpanel">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-building me-2"></i>Quản lý khách hàng</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
+                <a class="btn btn-primary btn-sm" href="{{ url_for('new_customer') }}">
+                    <i class="fas fa-plus me-2"></i>Thêm khách hàng
+                </a>
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="customer-search-admin" placeholder="Tìm kiếm khách hàng...">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="customer-filter-admin">
+                            <option value="">Tất cả</option>
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Ngưng hoạt động</option>
+                            <option value="daily">Đọc số hàng ngày</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-muted">
+                            Tổng: {{ customers|length }} khách hàng
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Công ty</th>
+                                <th>Người liên hệ</th>
+                                <th>Điện thoại</th>
+                                <th>Email</th>
+                                <th>Tỷ lệ NT/NS</th>
+                                <th>Loại đọc số</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customers-table-body">
+                            {% for customer in customers %}
+                            <tr class="customer-admin-row" data-status="{{ 'active' if customer.is_active else 'inactive' }}" data-reading="{{ 'daily' if customer.daily_reading else 'monthly' }}">
+                                <td>{{ customer.id }}</td>
+                                <td><strong>{{ customer.company_name }}</strong></td>
+                                <td>{{ customer.contact_person or '-' }}</td>
+                                <td>{{ customer.phone or '-' }}</td>
+                                <td>{{ customer.email or '-' }}</td>
+                                <td>{{ "%.2f"|format(customer.water_ratio) }}</td>
+                                <td>
+                                    {% if customer.daily_reading %}
+                                    <span class="badge bg-warning">Hàng ngày</span>
+                                    {% else %}
+                                    <span class="badge bg-info">Hàng tháng</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if customer.is_active %}
+                                    <span class="badge bg-success">Hoạt động</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Ngưng</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a class="btn btn-sm btn-outline-primary btn-edit-customer" title="Chỉnh sửa"
+                                       href="/customers/{{ customer.id }}/edit" role="button" aria-label="Chỉnh sửa khách hàng {{ customer.id }}">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-info" title="Xem lịch sử">
+                                        <i class="fas fa-history"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div> -->
+
+    <div class="tab-pane fade {% if active_tab=='customers' %}show active{% endif %}" id="customers" role="tabpanel">
+        {% include 'admin/customer.html' %}
+    </div>
+    
+    <!-- Wells Tab -->
+    <div class="tab-pane fade {% if active_tab=='wells' %}show active{% endif %}" id="wells" role="tabpanel">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-water me-2"></i>Quản lý giếng khoan</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addWellModal">
+                    <i class="fas fa-plus me-2"></i>Thêm giếng khoan
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Mã giếng</th>
+                                <th>Tên giếng</th>
+                                <th>Công suất (m³/ngày)</th>
+                                <th>Loại</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for well in wells %}
+                            <tr>
+                                <td>{{ well.id }}</td>
+                                <td><strong>{{ well.code }}</strong></td>
+                                <td>{{ well.name }}</td>
+                                <td>{{ "%.0f"|format(well.capacity or 0) }}</td>
+                                <td>
+                                    {% if well.is_backup %}
+                                    <span class="badge bg-warning">Dự phòng</span>
+                                    {% else %}
+                                    <span class="badge bg-primary">Chính</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if well.is_active %}
+                                    <span class="badge bg-success">Hoạt động</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Ngưng</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info" title="Xem sản lượng">
+                                        <i class="fas fa-chart-line"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tanks Tab -->
+    <div class="tab-pane fade {% if active_tab=='tanks' %}show active{% endif %}" id="tanks" role="tabpanel">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-database me-2"></i>Quản lý bể chứa</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTankModal">
+                    <i class="fas fa-plus me-2"></i>Thêm bể chứa
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Tên bể</th>
+                                <th>Dung tích (m³)</th>
+                                <th>Loại</th>
+                                <th>Mức hiện tại</th>
+                                <th>Tỷ lệ đầy (%)</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tank in tanks %}
+                            <tr>
+                                <td>{{ tank.id }}</td>
+                                <td><strong>{{ tank.name }}</strong></td>
+                                <td>{{ "%.0f"|format(tank.capacity or 0) }}</td>
+                                <td>
+                                    {% if tank.tank_type == 'clean_water' %}
+                                    <span class="badge bg-info">Nước sạch</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Nước thô</span>
+                                    {% endif %}
+                                </td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info" title="Xem lịch sử mức nước">
+                                        <i class="fas fa-chart-area"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Tab -->
+    <div class="tab-pane fade {% if active_tab=='settings' %}show active{% endif %}" id="settings" role="tabpanel">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-calendar me-2"></i>Cấu hình chu kỳ chốt số</h6>
+                    </div>
+                    <div class="card-body">
+                        <form>
+                            <div class="mb-3">
+                                <label class="form-label">Ngày chốt hàng tháng</label>
+                                <input type="number" class="form-control" value="25" min="1" max="31">
+                                <small class="text-muted">Ngày chốt số hàng tháng (từ 25 tháng trước đến 25 tháng sau)</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Giờ ghi số hàng ngày</label>
+                                <input type="time" class="form-control" value="16:00">
+                                <small class="text-muted">Thời gian ghi số hàng ngày (~16h)</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Lưu cấu hình
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-dollar-sign me-2"></i>Cấu hình đơn giá</h6>
+                    </div>
+                    <div class="card-body">
+                        <form>
+                            <div class="mb-3">
+                                <label class="form-label">Đơn giá nước sạch (VNĐ/m³)</label>
+                                <input type="number" class="form-control" value="8000" min="0">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Đơn giá nước thải (VNĐ/m³)</label>
+                                <input type="number" class="form-control" value="12000" min="0">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Tỷ lệ mặc định NT/NS</label>
+                                <input type="number" class="form-control" value="0.8" step="0.1" min="0" max="1">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Lưu đơn giá
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Ngưỡng cảnh báo</h6>
+                    </div>
+                    <div class="card-body">
+                        <form>
+                            <div class="mb-3">
+                                <label class="form-label">Mức nước bể thấp (%)</label>
+                                <input type="number" class="form-control" value="20" min="0" max="100">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Sản lượng giếng bất thường (%)</label>
+                                <input type="number" class="form-control" value="50" min="0" max="100">
+                                <small class="text-muted">Cảnh báo khi sản lượng giếng < % công suất</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Tiêu hao điện bất thường (%)</label>
+                                <input type="number" class="form-control" value="120" min="100">
+                                <small class="text-muted">Cảnh báo khi tiêu hao > % định mức</small>
+                            </div>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save me-2"></i>Lưu ngưỡng cảnh báo
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-shield-alt me-2"></i>Bảo mật hệ thống</h6>
+                    </div>
+                    <div class="card-body">
+                        <form>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enable-audit-log" checked>
+                                    <label class="form-check-label" for="enable-audit-log">
+                                        Ghi nhật ký hoạt động
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="require-approval" checked>
+                                    <label class="form-check-label" for="require-approval">
+                                        Yêu cầu phê duyệt trước khi khóa kỳ
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Thời gian tự động logout (phút)</label>
+                                <input type="number" class="form-control" value="60" min="15">
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-2"></i>Lưu cấu hình bảo mật
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Statistics -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-bar me-2"></i>Thống kê hệ thống</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-primary">{{ users|length }}</h4>
+                            <p class="text-muted mb-0">Người dùng</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-info">{{ customers|length }}</h4>
+                            <p class="text-muted mb-0">Khách hàng</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-warning">{{ wells|length }}</h4>
+                            <p class="text-muted mb-0">Giếng khoan</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-success">{{ tanks|length }}</h4>
+                            <p class="text-muted mb-0">Bể chứa</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Customer search and filter functionality
+document.getElementById('customer-search-admin').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('.customer-admin-row');
+    
+    rows.forEach(row => {
+        const companyName = row.cells[1].textContent.toLowerCase();
+        const contactPerson = row.cells[2].textContent.toLowerCase();
+        if (companyName.includes(searchTerm) || contactPerson.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+document.getElementById('customer-filter-admin').addEventListener('change', function() {
+    const filterValue = this.value;
+    const rows = document.querySelectorAll('.customer-admin-row');
+    
+    rows.forEach(row => {
+        if (filterValue === '') {
+            row.style.display = '';
+        } else if (filterValue === 'active' && row.dataset.status === 'active') {
+            row.style.display = '';
+        } else if (filterValue === 'inactive' && row.dataset.status === 'inactive') {
+            row.style.display = '';
+        } else if (filterValue === 'daily' && row.dataset.reading === 'daily') {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// document.addEventListener('DOMContentLoaded', function () {
+//   // Mặc định kích hoạt tab Users nếu không có hash
+//   const defaultTabBtn = document.getElementById('users-tab');
+//   if (defaultTabBtn && !window.location.hash) {
+//     new bootstrap.Tab(defaultTabBtn).show();
+//   }
+//   const hash = window.location.hash;
+//   if (hash === '#customers') {
+//     const btn = document.getElementById('customers-tab');
+//     if (btn) {
+//       new bootstrap.Tab(btn).show();
+//       window.scrollTo({top:0, left:0, behavior:'auto'});
+//     }
+//   }
+// });
+
+</script>
+{% endblock %}

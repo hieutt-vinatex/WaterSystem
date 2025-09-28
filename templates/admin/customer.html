@@ -1,0 +1,82 @@
+{% block content %}
+<div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-building me-2"></i>Quản lý khách hàng</h5>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('new_customer') }}">
+                <i class="fas fa-plus me-2"></i>Thêm khách hàng
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" id="customer-search-admin" placeholder="Tìm kiếm khách hàng...">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="customer-filter-admin">
+                        <option value="">Tất cả</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Ngưng hoạt động</option>
+                        <option value="daily">Đọc số hàng ngày</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-muted">
+                        Tổng: {{ customers|length if customers is defined else 0 }} khách hàng
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Công ty</th>
+                            <th>Người liên hệ</th>
+                            <th>Điện thoại</th>
+                            <th>Email</th>
+                            <th>Tỷ lệ NT/NS</th>
+                            <th>Loại đọc số</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customers-table-body">
+                        {% for customer in customers %}
+                        <tr class="customer-admin-row" data-status="{{ 'active' if customer.is_active else 'inactive' }}" data-reading="{{ 'daily' if customer.daily_reading else 'monthly' }}">
+                            <td>{{ customer.id }}</td>
+                            <td><strong>{{ customer.company_name }}</strong></td>
+                            <td>{{ customer.contact_person or '-' }}</td>
+                            <td>{{ customer.phone or '-' }}</td>
+                            <td>{{ customer.email or '-' }}</td>
+                            <td>{{ "%.2f"|format(customer.water_ratio or 0) }}</td>
+                            <td>
+                                {% if customer.daily_reading %}
+                                <span class="badge bg-warning">Hàng ngày</span>
+                                {% else %}
+                                <span class="badge bg-info">Hàng tháng</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if customer.is_active %}
+                                <span class="badge bg-success">Hoạt động</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Ngưng</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_customer', customer_id=customer.id) }}">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-info" title="Xem lịch sử"><i class="fas fa-history"></i></button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="9" class="text-center">Chưa có khách hàng.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+</div>
+{% endblock %}

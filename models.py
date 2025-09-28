@@ -31,6 +31,7 @@ class Customer(db.Model):
     phone = db.Column(db.String(20))
     email = db.Column(db.String(120))
     address = db.Column(db.Text)
+    notes = db.Column(db.Text)
     water_ratio = db.Column(db.Float, default=0.8)  # Wastewater to clean water ratio
     daily_reading = db.Column(db.Boolean, default=False)  # True for large customers
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
