@@ -407,22 +407,26 @@ def chart_details(chart_type):
         flash('Loại biểu đồ không hợp lệ', 'error')
         return redirect(url_for('dashboard'))
 
-    return render_template('chart_details.html',
-                           chart_type=chart_type,
-                           chart_type_name=config['name'],
-                           chart_icon=config['icon'],
-                           chart_description=config['description'])
+    wells_list = []
+    if chart_type == 'wells':
+        wells_list = Well.query.filter_by(is_active=True).order_by(Well.code).all()
+    return render_template(
+        'chart_details.html',
+        chart_type=chart_type,
+        chart_type_name=config['name'],
+        chart_icon=config['icon'],
+        chart_description=config['description'],
+        wells=wells_list
+    )
 
 @app.route('/api/chart-details/<chart_type>')
 @login_required
 def api_chart_details(chart_type):
-    """API endpoint for chart detail data"""
     try:
         days = request.args.get('days', 30, type=int)
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
 
-        # Calculate date range
         if start_date and end_date:
             start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
             end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
@@ -430,9 +434,10 @@ def api_chart_details(chart_type):
             end_dt = datetime.now().date()
             start_dt = end_dt - timedelta(days=days)
 
-        # Generate detailed data based on chart type
         if chart_type == 'wells':
-            data = generate_well_production_details(start_dt, end_dt)
+            well_ids_param = request.args.get('well_ids')
+            well_ids = [int(x) for x in well_ids_param.split(',') if x.strip().isdigit()] if well_ids_param else None
+            data = get_well_production_range(start_dt, end_dt, well_ids)
         elif chart_type == 'clean-water':
             data = generate_clean_water_details(start_dt, end_dt)
         elif chart_type == 'wastewater':
@@ -443,10 +448,113 @@ def api_chart_details(chart_type):
             return jsonify({'error': 'Invalid chart type'}), 400
 
         return jsonify(data)
-
     except Exception as e:
         logger.error(f"Error in chart details API: {str(e)}")
         return jsonify({'error': 'Lỗi khi tải dữ liệu chi tiết'}), 500
+
+
+def get_well_production_range(start_date, end_date, well_ids=None):
+    """
+    Trả dữ liệu sản lượng theo ngày cho từng giếng + đường công suất danh định.
+    """
+    q = db.session.query(
+        WellProduction.date,
+        Well.id.label('well_id'),
+        Well.code.label('well_code'),
+        Well.capacity.label('capacity'),
+        db.func.sum(WellProduction.production).label('production')
+    ).join(Well).filter(
+        WellProduction.date >= start_date,
+        WellProduction.date <= end_date
+    )
+    if well_ids:
+        q = q.filter(Well.id.in_(well_ids))
+    q = q.group_by(
+        WellProduction.date, Well.id, Well.code, Well.capacity
+    ).order_by(WellProduction.date, Well.code)
+
+    rows = q.all()
+
+    dates_set = sorted({r.date for r in rows})
+    labels = [d.strftime('%d/%m') for d in dates_set]
+
+    # Map well_code -> {date: production}
+    wells_map = {}
+    capacities_map = {}
+    for r in rows:
+        wells_map.setdefault(r.well_code, {})[r.date] = float(r.production or 0)
+        # Lưu capacity giếng (nếu None thì 0)
+        capacities_map[r.well_code] = float(r.capacity or 0)
+
+    palette = [
+        'rgb(54,162,235)', 'rgb(255,99,132)', 'rgb(75,192,192)',
+        'rgb(255,206,86)', 'rgb(153,102,255)', 'rgb(255,159,64)'
+    ]
+
+    datasets = []
+    well_colors = {}
+
+    # Dataset sản lượng
+    for i, (well_code, date_dict) in enumerate(sorted(wells_map.items())):
+        color = palette[i % len(palette)]
+        well_colors[well_code] = color
+        datasets.append({
+            'label': well_code,
+            'data': [date_dict.get(d, 0) for d in dates_set],
+            'borderColor': color,
+            'backgroundColor': color.replace('rgb', 'rgba').replace(')', ',0.15)'),
+            'fill': False,
+            'tension': 0.3
+        })
+
+    # Dataset công suất (dashed)
+    for well_code, capacity in sorted(capacities_map.items()):
+        color = well_colors.get(well_code, 'rgb(100,100,100)')
+        datasets.append({
+            'label': f'{well_code} - Công suất',
+            'data': [capacity for _ in dates_set],
+            'borderColor': color,
+            'backgroundColor': 'rgba(0,0,0,0)',
+            'fill': False,
+            'tension': 0.0,
+            'borderDash': [6, 6],
+            'pointRadius': 0
+            # 'hidden': True  # bật dòng này nếu muốn mặc định ẩn các đường công suất
+        })
+
+    total_each_day = [sum(ds['data'][idx] for ds in datasets
+                          if 'Công suất' not in ds['label'])
+                      for idx in range(len(labels))]
+    summary = {
+        'total': sum(total_each_day),
+        'average': (sum(total_each_day) / len(total_each_day)) if total_each_day else 0,
+        'max': max(total_each_day) if total_each_day else 0,
+        'min': min([v for v in total_each_day if v > 0]) if any(total_each_day) else 0
+    }
+
+    table_data = []
+    for idx, d in enumerate(dates_set):
+        row = {'date': d.strftime('%d/%m/%Y')}
+        daily_total = 0
+        for ds in datasets:
+            if 'Công suất' in ds['label']:
+                # Bỏ qua cột công suất trong bảng (nếu muốn hiển thị thì thêm vào)
+                continue
+            v = ds['data'][idx]
+            row[ds['label']] = v
+            daily_total += v
+        row['total'] = daily_total
+        table_data.append(row)
+
+    return {
+        'chart_data': {
+            'labels': labels,
+            'datasets': datasets
+        },
+        'summary': summary,
+        'table_data': table_data
+    }
+
 
 def generate_well_production_details(start_date, end_date):
     """Generate detailed well production data"""
@@ -1020,10 +1128,6 @@ def edit_customer(customer_id):
         customer.contact_person = request.form.get('contact_person', customer.contact_person)
         customer.phone = request.form.get('phone', customer.phone)
         customer.email = request.form.get('email', customer.email)
-        try:
-            customer.water_ratio = float(request.form.get('water_ratio', customer.water_ratio or 0))
-        except ValueError:
-            customer.water_ratio = customer.water_ratio or 0
         customer.address = request.form.get('address', customer.address)
         customer.notes = request.form.get('notes', customer.notes)
         customer.daily_reading = True if request.form.get('daily_reading') == 'on' else False
