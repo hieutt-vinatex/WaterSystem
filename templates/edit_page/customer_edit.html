@@ -73,7 +73,7 @@
     </div>
 
     <div class="card-footer text-end">
-      <a class="btn btn-secondary me-2" href="{{ url_for('admin') }}#customers">Hủy</a>
+      <a class="btn btn-secondary me-2" href="{{ url_for('admin') }}?active_tab={{ session.get('prev_active_tab','customers') }}">Hủy</a>
       <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
     </div>
   </div>

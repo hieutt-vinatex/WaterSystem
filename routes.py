@@ -298,7 +298,10 @@ def admin():
     if not check_permissions(current_user.role, ['admin']):
         flash('You do not have permission to access this page', 'error')
         return redirect(url_for('dashboard'))
-    active_tab = session.pop('active_tab', 'users')
+    # Allow explicit active_tab via query param (used by Cancel buttons)
+    active_tab = request.args.get('active_tab')
+    if not active_tab:
+        active_tab = session.pop('active_tab', 'users')
     users = User.query.all()
     customers = Customer.query.all()
     wells = Well.query.all()
@@ -1140,6 +1143,8 @@ def edit_customer(customer_id):
         session['active_tab'] = 'customers'
         return redirect(url_for('admin'))
     # GET
+    # store previous active tab so template Cancel can return there
+    session['prev_active_tab'] = session.get('active_tab', 'customers')
     return render_template('edit_page/customer_edit.html', customer=customer)
 
 
@@ -1215,7 +1220,34 @@ def new_customer():
         db.session.commit()
         flash('Thêm khách hàng thành công.', 'success')
         session['active_tab'] = 'customers'
+        session['prev_active_tab'] = session.get('prev_active_tab', 'customers')
         return redirect(url_for('admin'))
-
+ 
     empty_customer = Customer()
+    # store previous active tab so template Cancel can return there
+    session['prev_active_tab'] = session.get('active_tab', 'customers')
     return render_template('new_page/customer_new.html', customer=empty_customer)
+
+
+@app.route('/customers/<int:customer_id>/delete', methods=['POST'])
+@login_required
+def delete_customer(customer_id):
+    # Kiểm tra phân quyền (chỉ admin hoặc data entry có thể xóa tuỳ logic của project)
+    if not check_permissions(current_user.role, ['admin']):
+        flash('Không có quyền xóa khách hàng.', 'danger')
+        return redirect(url_for('admin') + '#customers')
+    customer = Customer.query.get_or_404(customer_id)
+    try:
+        # Xóa các CustomerReading liên quan trước (bulk delete)
+        CustomerReading.query.filter_by(customer_id=customer.id).delete()
+        db.session.delete(customer)
+        db.session.commit()
+        flash(f"Đã xóa khách hàng #{customer.id} - {customer.company_name}.", 'success')
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Error deleting customer")
+        flash('Xóa khách hàng thất bại.', 'danger')
+
+    # đảm bảo admin mở tab customers
+    session['active_tab'] = 'customers'
+    return redirect(url_for('admin') + '#customers')

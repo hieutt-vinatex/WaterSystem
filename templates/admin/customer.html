@@ -70,7 +70,13 @@
                                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_customer', customer_id=customer.id) }}">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <button class="btn btn-sm btn-outline-info" title="Xem lịch sử"><i class="fas fa-history"></i></button>
+
+                                <!-- Delete form: confirm trước khi submit -->
+                                <form method="post" action="{{ url_for('delete_customer', customer_id=customer.id) }}" style="display:inline" onsubmit="return confirm('Xác nhận xóa khách hàng #{{ customer.id }}: {{ customer.company_name }} ?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa khách hàng">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         {% else %}
