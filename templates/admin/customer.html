@@ -35,6 +35,7 @@
                             <th>Người liên hệ</th>
                             <th>Điện thoại</th>
                             <th>Email</th>
+                            <th>Vị trí</th>
                             <th>Tỷ lệ NT/NS</th>
                             <th>Loại đọc số</th>
                             <th>Trạng thái</th>
@@ -49,6 +50,7 @@
                             <td>{{ customer.contact_person or '-' }}</td>
                             <td>{{ customer.phone or '-' }}</td>
                             <td>{{ customer.email or '-' }}</td>
+                            <td>{{ customer.location or '-' }}</td>
                             <td>{{ "%.2f"|format(customer.water_ratio or 0) }}</td>
                             <td>
                                 {% if customer.daily_reading %}
