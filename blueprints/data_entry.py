@@ -295,16 +295,17 @@ def submit_tank_levels():
 @login_required
 def customer_readings_exists():
     # GET ?date=YYYY-MM-DD&customer_ids=1,2,3
-    the_date = coerce_opt(request.args.get('date'), 'date')
-    if the_date is None:
-        return jsonify({'exists': False, 'customers': []}), 400
-    ids_param = request.args.get('customer_ids', '')
+    date_str = request.args.get('date')
     try:
-        ids = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
+        the_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except Exception:
-        ids = []
+        return jsonify({'exists': False, 'customers': []}), 400
+
+    ids_param = request.args.get('customer_ids', '')
+    ids = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
     if not ids:
         return jsonify({'exists': False, 'customers': []})
+
     rows = db.session.query(CustomerReading.customer_id).filter(
         CustomerReading.date == the_date,
         CustomerReading.customer_id.in_(ids)
@@ -325,24 +326,48 @@ def submit_customer_readings():
             flash('Không có khách hàng nào để lưu', 'warning')
             return redirect(url_for('data_entry.data_entry') + '#customers')
 
-        changes_total = 0
+        # Chỉ xử lý KH có nhập số (kể cả "0")
+        def parse_float_opt(val):
+            s = ('' if val is None else str(val).strip())
+            if s == '':
+                return None
+            if s.count(',') and s.count('.') == 0:
+                s = s.replace(',', '.')
+            else:
+                s = s.replace(',', '')
+            try:
+                return float(s)
+            except ValueError:
+                return None
+
+        filled = {}
         for cid in customer_ids:
             cw_raw = request.form.get(f'clean_water_{cid}', '')
             ww_raw = request.form.get(f'wastewater_{cid}', '')
-
-            # rỗng -> None (bỏ qua), "0" hợp lệ
-            def parse_float_opt(val):
-                s = ('' if val is None else str(val).strip())
-                if s == '': return None
-                if s.count(',') and s.count('.') == 0: s = s.replace(',', '.')
-                else: s = s.replace(',', '')
-                try: return float(s)
-                except ValueError: return None
-
             cw_val = parse_float_opt(cw_raw)
             ww_val = parse_float_opt(ww_raw) if ww_raw != '' else None
+            if cw_val is not None or ww_val is not None:
+                filled[cid] = {'cw': cw_val, 'ww': ww_val}
 
-            # tính wastewater_calculated khi không nhập wastewater
+        if not filled:
+            flash('Không có dữ liệu để lưu', 'warning')
+            return redirect(url_for('data_entry.data_entry') + '#customers')
+
+        existing_rows = CustomerReading.query.filter(
+            CustomerReading.date == entry_date,
+            CustomerReading.customer_id.in_(list(filled.keys()))
+        ).all()
+        exist_map = {r.customer_id: r for r in existing_rows}
+
+        # Danh sách KH cho phép ghi đè (từ popup)
+        overwrite_raw = request.form.get('overwrite_customer_ids', '') or request.form.get('overwrite_ids', '')
+        overwrite_ids = {int(x) for x in overwrite_raw.split(',') if x.strip().isdigit()}
+
+        changes = 0
+        for cid, vals in filled.items():
+            cw_val, ww_val = vals['cw'], vals['ww']
+
+            # Tính wastewater_calculated nếu không nhập wastewater
             customer = Customer.query.get(cid)
             try:
                 ratio = float(customer.water_ratio or 0)
@@ -350,28 +375,25 @@ def submit_customer_readings():
                 ratio = 0.0
             ww_calc = None if ww_val is not None else (cw_val * ratio if cw_val is not None else None)
 
-            existing = CustomerReading.query.filter_by(customer_id=cid, date=entry_date).first()
-
-            if existing:
-                before = (existing.clean_water_reading, existing.wastewater_reading, existing.wastewater_calculated)
-
-                # Cập nhật có chọn lọc: chỉ field đã nhập (khác None)
-                if cw_val is not None and existing.clean_water_reading != cw_val:
-                    existing.clean_water_reading = cw_val
-                    if ww_val is None:  # chỉ khi không nhập wastewater mới cập nhật calculated
-                        existing.wastewater_calculated = ww_calc
-
-                if ww_raw != '' and existing.wastewater_reading != ww_val:
-                    existing.wastewater_reading = ww_val
-                    existing.wastewater_calculated = None  # ưu tiên số nhập tay
-
-                after = (existing.clean_water_reading, existing.wastewater_reading, existing.wastewater_calculated)
-                if before != after:
-                    changes_total += 1
+            if cid in exist_map:
+                if cid in overwrite_ids:
+                    before = (exist_map[cid].clean_water_reading,
+                              exist_map[cid].wastewater_reading,
+                              exist_map[cid].wastewater_calculated)
+                    if cw_val is not None:
+                        exist_map[cid].clean_water_reading = cw_val
+                        if ww_val is None:
+                            exist_map[cid].wastewater_calculated = ww_calc
+                    if ww_val is not None:
+                        exist_map[cid].wastewater_reading = ww_val
+                        exist_map[cid].wastewater_calculated = None
+                    after = (exist_map[cid].clean_water_reading,
+                             exist_map[cid].wastewater_reading,
+                             exist_map[cid].wastewater_calculated)
+                    if before != after:
+                        changes += 1
+                # nếu không xác nhận ghi đè -> bỏ qua
             else:
-                # Tạo mới nếu có ít nhất một trường được nhập
-                if cw_val is None and ww_val is None:
-                    continue
                 db.session.add(CustomerReading(
                     customer_id=cid,
                     date=entry_date,
@@ -380,10 +402,10 @@ def submit_customer_readings():
                     wastewater_calculated=(ww_calc if ww_val is None else None),
                     created_by=current_user.id
                 ))
-                changes_total += 1
+                changes += 1
 
-        if changes_total == 0:
-            flash('Không có thay đổi nào được áp dụng (có thể bạn để trống hoặc dữ liệu không đổi).', 'warning')
+        if changes == 0:
+            flash('Không có thay đổi nào được áp dụng. Có thể dữ liệu đã tồn tại và bạn không xác nhận ghi đè.', 'warning')
             return redirect(url_for('data_entry.data_entry') + '#customers')
 
         db.session.commit()

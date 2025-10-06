@@ -308,6 +308,8 @@
                         </div>
                     </div>
                     
+                    <input type="hidden" name="overwrite_customer_ids" id="overwrite-customer-ids" value="">
+                    
                     <div class="table-responsive">
                         <table class="table table-striped">
                             <thead>
@@ -611,8 +613,9 @@ document.addEventListener('DOMContentLoaded', function () {
     e.preventDefault();
     const dateVal = (form.querySelector('input[name="date"]') || {}).value;
 
-    // Thu thập các KH có nhập bất kỳ trường nào (kể cả "0")
-    const ids = Array.from(form.querySelectorAll('input[name="customer_ids"]')).map(i => Number(i.value)).filter(Boolean);
+    const ids = Array.from(form.querySelectorAll('input[name="customer_ids"]'))
+      .map(i => Number(i.value)).filter(Boolean);
+
     const filled = ids.map(id => {
       const cw = (form.querySelector(`input[name="clean_water_${id}"]`)?.value || '').trim();
       const ww = (form.querySelector(`input[name="wastewater_${id}"]`)?.value || '').trim();
@@ -622,17 +625,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!dateVal || filled.length === 0) { form.submit(); return; }
 
     try {
-      // Kiểm tra chỉ các KH đã nhập (giống wells)
       const url = `{{ url_for('data_entry.customer_readings_exists') }}?date=${encodeURIComponent(dateVal)}&customer_ids=${encodeURIComponent(filled.map(x=>x.id).join(','))}`;
       const res = await fetch(url, { credentials: 'same-origin' });
-      if (!res.ok) { form.submit(); return; }
       const data = await res.json();
 
       if (data.exists && Array.isArray(data.customers) && data.customers.length) {
         const existSet = new Set(data.customers.map(Number));
         const toOverwrite = filled.filter(f => existSet.has(f.id));
         if (toOverwrite.length) {
-          // Hiển thị rõ giá trị sẽ ghi đè cho từng KH (cả 2 trường nếu có nhập)
           const lines = toOverwrite.map(it => {
             const parts = [];
             if (it.cw !== '') parts.push(`- Nước sạch: ${it.cw}`);
@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('overwrite-customer-ids').value = toOverwrite.map(x => x.id).join(',');
         }
       }
-    } catch (_) { /* ignore mạng, vẫn submit */ }
+    } catch (_) { /* ignore */ }
 
     form.submit();
   });
