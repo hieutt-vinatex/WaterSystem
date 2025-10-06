@@ -57,13 +57,14 @@ add_alias('/customers/<int:customer_id>/delete', 'delete_customer', 'customers.d
 add_alias('/api/kpi-data', 'kpi_data', 'charts.kpi_data')
 
 # ...sau khi register blueprint và khai báo add_alias()...
-add_alias('/api/clean-water-plant/exists', 'clean_water_exists', 'data_entry.clean_water_plant_exists')
+add_alias('/api/clean-water-plant/exists', 'clean_water_plant_exists', 'data_entry.clean_water_plant_exists')
 
 # ...existing code after registering blueprints and add_alias() helper...
 add_alias('/api/exists/<model_key>', 'model_exists', 'data_entry.model_exists')
 
 add_alias('/api/well-production/exists', 'well_production_exists', 'data_entry.well_production_exists')
 add_alias('/api/wastewater-plant/exists', 'wastewater_plant_exists', 'data_entry.wastewater_plant_exists')
+add_alias('/api/customer-readings/exists', 'customer_readings_exists', 'data_entry.customer_readings_exists')
 
 
 

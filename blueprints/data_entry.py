@@ -55,18 +55,26 @@ def model_exists(model_key):
 @bp.route('/api/clean-water-plant/exists')
 @login_required
 def clean_water_plant_exists():
+    """
+    GET ?date=YYYY-MM-DD
+    Trả: {exists: bool}
+    """
     date_str = request.args.get('date')
-    v = coerce_opt(date_str, 'date')
-    if v is None:
-        return jsonify({'exists': False})
-    return jsonify({'exists': exists_by_keys(CleanWaterPlant, {'date': v})})
+    the_date = coerce_opt(date_str, 'date')
+    if the_date is None:
+        return jsonify({'exists': False}), 400
 
+    exists = db.session.query(CleanWaterPlant.id).filter(
+        CleanWaterPlant.date == the_date
+    ).first() is not None
+
+    return jsonify({'exists': exists})
 
 # Helper: ở lại đúng tab
 def _redirect_to_tab(anchor: str):
     return redirect(url_for('data_entry.data_entry') + f'#{anchor}')
 
-# Helper: parse số, rỗng -> None (để bỏ qua cập nhật khi update)
+# Helper: parse số, rỗng -> None (để bỏ qua cập nhật)
 def parse_float_opt(val):
     s = ('' if val is None else str(val).strip())
     if not s:
@@ -283,6 +291,27 @@ def submit_tank_levels():
         flash(f'Lỗi khi lưu dữ liệu: {str(e)}', 'error')
     return redirect(url_for('data_entry.data_entry'))
 
+@bp.route('/api/customer-readings/exists')
+@login_required
+def customer_readings_exists():
+    # GET ?date=YYYY-MM-DD&customer_ids=1,2,3
+    the_date = coerce_opt(request.args.get('date'), 'date')
+    if the_date is None:
+        return jsonify({'exists': False, 'customers': []}), 400
+    ids_param = request.args.get('customer_ids', '')
+    try:
+        ids = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
+    except Exception:
+        ids = []
+    if not ids:
+        return jsonify({'exists': False, 'customers': []})
+    rows = db.session.query(CustomerReading.customer_id).filter(
+        CustomerReading.date == the_date,
+        CustomerReading.customer_id.in_(ids)
+    ).all()
+    exist_ids = sorted({r.customer_id for r in rows})
+    return jsonify({'exists': len(exist_ids) > 0, 'customers': exist_ids})
+
 @bp.route('/submit-customer-readings', methods=['POST'])
 @login_required
 def submit_customer_readings():
@@ -291,32 +320,75 @@ def submit_customer_readings():
         return redirect(url_for('dashboard.dashboard'))
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        for customer_id in request.form.getlist('customer_ids'):
-            clean_water_reading = float(request.form.get(f'clean_water_{customer_id}', 0))
-            wastewater_reading = request.form.get(f'wastewater_{customer_id}')
-            customer = Customer.query.get(customer_id)
-            if wastewater_reading:
-                wastewater_reading = float(wastewater_reading)
-                wastewater_calculated = None
-            else:
-                wastewater_reading = None
-                wastewater_calculated = clean_water_reading * customer.water_ratio
-            existing = CustomerReading.query.filter_by(customer_id=customer_id, date=entry_date).first()
+        customer_ids = [int(x) for x in request.form.getlist('customer_ids') if str(x).isdigit()]
+        if not customer_ids:
+            flash('Không có khách hàng nào để lưu', 'warning')
+            return redirect(url_for('data_entry.data_entry') + '#customers')
+
+        changes_total = 0
+        for cid in customer_ids:
+            cw_raw = request.form.get(f'clean_water_{cid}', '')
+            ww_raw = request.form.get(f'wastewater_{cid}', '')
+
+            # rỗng -> None (bỏ qua), "0" hợp lệ
+            def parse_float_opt(val):
+                s = ('' if val is None else str(val).strip())
+                if s == '': return None
+                if s.count(',') and s.count('.') == 0: s = s.replace(',', '.')
+                else: s = s.replace(',', '')
+                try: return float(s)
+                except ValueError: return None
+
+            cw_val = parse_float_opt(cw_raw)
+            ww_val = parse_float_opt(ww_raw) if ww_raw != '' else None
+
+            # tính wastewater_calculated khi không nhập wastewater
+            customer = Customer.query.get(cid)
+            try:
+                ratio = float(customer.water_ratio or 0)
+            except (TypeError, ValueError):
+                ratio = 0.0
+            ww_calc = None if ww_val is not None else (cw_val * ratio if cw_val is not None else None)
+
+            existing = CustomerReading.query.filter_by(customer_id=cid, date=entry_date).first()
+
             if existing:
-                existing.clean_water_reading = clean_water_reading
-                existing.wastewater_reading = wastewater_reading
-                existing.wastewater_calculated = wastewater_calculated
+                before = (existing.clean_water_reading, existing.wastewater_reading, existing.wastewater_calculated)
+
+                # Cập nhật có chọn lọc: chỉ field đã nhập (khác None)
+                if cw_val is not None and existing.clean_water_reading != cw_val:
+                    existing.clean_water_reading = cw_val
+                    if ww_val is None:  # chỉ khi không nhập wastewater mới cập nhật calculated
+                        existing.wastewater_calculated = ww_calc
+
+                if ww_raw != '' and existing.wastewater_reading != ww_val:
+                    existing.wastewater_reading = ww_val
+                    existing.wastewater_calculated = None  # ưu tiên số nhập tay
+
+                after = (existing.clean_water_reading, existing.wastewater_reading, existing.wastewater_calculated)
+                if before != after:
+                    changes_total += 1
             else:
+                # Tạo mới nếu có ít nhất một trường được nhập
+                if cw_val is None and ww_val is None:
+                    continue
                 db.session.add(CustomerReading(
-                    customer_id=customer_id, date=entry_date,
-                    clean_water_reading=clean_water_reading,
-                    wastewater_reading=wastewater_reading,
-                    wastewater_calculated=wastewater_calculated,
+                    customer_id=cid,
+                    date=entry_date,
+                    clean_water_reading=(cw_val if cw_val is not None else 0.0),
+                    wastewater_reading=ww_val,
+                    wastewater_calculated=(ww_calc if ww_val is None else None),
                     created_by=current_user.id
                 ))
+                changes_total += 1
+
+        if changes_total == 0:
+            flash('Không có thay đổi nào được áp dụng (có thể bạn để trống hoặc dữ liệu không đổi).', 'warning')
+            return redirect(url_for('data_entry.data_entry') + '#customers')
+
         db.session.commit()
         flash('Customer readings saved successfully', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
-    return redirect(url_for('data_entry.data_entry'))
+    return redirect(url_for('data_entry.data_entry') + '#customers')

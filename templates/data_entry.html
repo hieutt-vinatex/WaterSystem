@@ -427,6 +427,57 @@
 
 {% block extra_scripts %}
 <script>
+/* --- Tab Nhà máy nước sạch --- */
+document.addEventListener('DOMContentLoaded', function () {
+  const cleanForm = document.getElementById('cleanWaterForm');
+  if (!cleanForm) return;
+
+  cleanForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const dateVal = (cleanForm.querySelector('input[name="date"]') || {}).value;
+
+    // Các field cần kiểm tra
+    const fieldNames = ['electricity','pac_usage','naoh_usage','polymer_usage','clean_water_output','raw_water_jasan'];
+    const labels = {
+      electricity: 'Điện tiêu thụ (kWh)',
+      pac_usage: 'PAC (kg)',
+      naoh_usage: 'Xút (kg)',
+      polymer_usage: 'Polymer (kg)',
+      clean_water_output: 'Nước sạch sản xuất (m³)',
+      raw_water_jasan: 'Nước thô Jasan (m³)'
+    };
+
+    // Chỉ liệt kê các ô đã nhập (kể cả "0")
+    const filled = fieldNames.map(n => {
+      const el = cleanForm.querySelector(`[name="${n}"]`);
+      const v = el ? (el.value || '').trim() : '';
+      return v === '' ? null : `- ${labels[n] || n}: ${v}`;
+    }).filter(Boolean);
+
+    if (!dateVal || filled.length === 0) { cleanForm.submit(); return; }
+
+    try {
+      // Gọi API kiểm tra tồn tại theo ngày
+      const url = `{{ url_for('clean_water_plant_exists') }}?date=${encodeURIComponent(dateVal)}`;
+      const res = await fetch(url, { credentials: 'same-origin' });
+      const data = await res.json();
+
+      if (data.exists) {
+        const ok = window.confirm(
+          `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước sạch.\n` +
+          `Bạn sắp ghi đè các trường sau:\n${filled.join('\n')}\n\nTiếp tục?`
+        );
+        if (!ok) return;
+        // Set cờ ghi đè để backend cho phép cập nhật
+        const ow = document.getElementById('overwrite-flag') || cleanForm.querySelector('input[name="overwrite"]');
+        if (ow) ow.value = '1';
+      }
+    } catch (_) { /* ignore lỗi mạng, vẫn submit */ }
+
+    cleanForm.submit();
+  });
+});
+
 /* Helpers chung */
 function getFilledNumericFields(form, names, labelsMap) {
   // Trả danh sách {name, label, value} với các input có nhập (kể cả "0")
