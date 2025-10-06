@@ -288,7 +288,7 @@
                 <small class="text-muted">Chốt số từ ngày 25 tháng trước đến 25 tháng sau</small>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('submit_customer_readings') }}">
+                <form method="POST" id="customerForm" action="{{ url_for('submit_customer_readings') }}">
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label for="customer-date" class="form-label">Ngày chốt</label>
@@ -600,6 +600,57 @@ async function attachWastewaterFormHandler(formId, overwriteId, plantNumber) {
 document.addEventListener('DOMContentLoaded', function () {
   attachWastewaterFormHandler('wastewaterForm1', 'overwrite-wastewater-1', 1);
   attachWastewaterFormHandler('wastewaterForm2', 'overwrite-wastewater-2', 2);
+});
+
+/* --- Tab Khách hàng --- */
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('customerForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const dateVal = (form.querySelector('input[name="date"]') || {}).value;
+
+    // Thu thập các KH có nhập bất kỳ trường nào (kể cả "0")
+    const ids = Array.from(form.querySelectorAll('input[name="customer_ids"]')).map(i => Number(i.value)).filter(Boolean);
+    const filled = ids.map(id => {
+      const cw = (form.querySelector(`input[name="clean_water_${id}"]`)?.value || '').trim();
+      const ww = (form.querySelector(`input[name="wastewater_${id}"]`)?.value || '').trim();
+      return (cw !== '' || ww !== '') ? { id, cw, ww } : null;
+    }).filter(Boolean);
+
+    if (!dateVal || filled.length === 0) { form.submit(); return; }
+
+    try {
+      // Kiểm tra chỉ các KH đã nhập (giống wells)
+      const url = `{{ url_for('data_entry.customer_readings_exists') }}?date=${encodeURIComponent(dateVal)}&customer_ids=${encodeURIComponent(filled.map(x=>x.id).join(','))}`;
+      const res = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) { form.submit(); return; }
+      const data = await res.json();
+
+      if (data.exists && Array.isArray(data.customers) && data.customers.length) {
+        const existSet = new Set(data.customers.map(Number));
+        const toOverwrite = filled.filter(f => existSet.has(f.id));
+        if (toOverwrite.length) {
+          // Hiển thị rõ giá trị sẽ ghi đè cho từng KH (cả 2 trường nếu có nhập)
+          const lines = toOverwrite.map(it => {
+            const parts = [];
+            if (it.cw !== '') parts.push(`- Nước sạch: ${it.cw}`);
+            if (it.ww !== '') parts.push(`- Nước thải: ${it.ww}`);
+            return `KH ${it.id}:\n${parts.join('\n')}`;
+          }).join('\n');
+          const ok = window.confirm(
+            `Đã có dữ liệu ngày ${dateVal} cho một số khách hàng.\n` +
+            `Bạn sắp ghi đè dữ liệu cho các khách hàng sau:\n\n${lines}\n\nTiếp tục?`
+          );
+          if (!ok) return;
+          document.getElementById('overwrite-customer-ids').value = toOverwrite.map(x => x.id).join(',');
+        }
+      }
+    } catch (_) { /* ignore mạng, vẫn submit */ }
+
+    form.submit();
+  });
 });
 </script>
 {% endblock %}
