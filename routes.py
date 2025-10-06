@@ -63,6 +63,7 @@ add_alias('/api/clean-water-plant/exists', 'clean_water_exists', 'data_entry.cle
 add_alias('/api/exists/<model_key>', 'model_exists', 'data_entry.model_exists')
 
 add_alias('/api/well-production/exists', 'well_production_exists', 'data_entry.well_production_exists')
+add_alias('/api/wastewater-plant/exists', 'wastewater_plant_exists', 'data_entry.wastewater_plant_exists')
 
 
 

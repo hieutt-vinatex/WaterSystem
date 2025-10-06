@@ -174,7 +174,9 @@
                         <small class="text-muted">Công suất: 12,000 m³/ngày</small>
                     </div>
                     <div class="card-body">
-                        <form method="POST" action="{{ url_for('submit_wastewater_plant') }}">
+                        <form id="wastewaterForm1" action="{{ url_for('submit_wastewater_plant') }}" method="post">
+                            <input type="hidden" name="return_to" value="wastewater-1">
+                            <input type="hidden" name="overwrite" id="overwrite-wastewater-1" value="0">
                             <input type="hidden" name="plant_number" value="1">
                             
                             <div class="mb-3">
@@ -226,7 +228,9 @@
                         <small class="text-muted">Công suất: 8,000 m³/ngày</small>
                     </div>
                     <div class="card-body">
-                        <form method="POST" action="{{ url_for('submit_wastewater_plant') }}">
+                        <form id="wastewaterForm2" action="{{ url_for('submit_wastewater_plant') }}" method="post">
+                            <input type="hidden" name="return_to" value="wastewater-2">
+                            <input type="hidden" name="overwrite" id="overwrite-wastewater-2" value="0">
                             <input type="hidden" name="plant_number" value="2">
                             
                             <div class="mb-3">
@@ -423,140 +427,128 @@
 
 {% block extra_scripts %}
 <script>
-// Customer search and filter functionality
-document.getElementById('customer-search').addEventListener('input', function() {
-    const searchTerm = this.value.toLowerCase();
-    const rows = document.querySelectorAll('.customer-row');
-    
-    rows.forEach(row => {
-        const companyName = row.cells[0].textContent.toLowerCase();
-        if (companyName.includes(searchTerm)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-});
+/* Helpers chung */
+function getFilledNumericFields(form, names, labelsMap) {
+  // Trả danh sách {name, label, value} với các input có nhập (kể cả "0")
+  const out = [];
+  for (const n of names) {
+    const el = form.querySelector(`[name="${n}"]`);
+    if (!el) continue;
+    const raw = (el.value || '').trim();
+    if (raw === '') continue;
+    out.push({ name: n, label: labelsMap[n] || n, value: raw });
+  }
+  return out;
+}
 
-document.getElementById('customer-filter').addEventListener('change', function() {
-    const filterValue = this.value;
-    const rows = document.querySelectorAll('.customer-row');
-    
-    rows.forEach(row => {
-        if (filterValue === '') {
-            row.style.display = '';
-        } else if (filterValue === 'daily' && row.dataset.daily === 'true') {
-            row.style.display = '';
-        } else if (filterValue === 'monthly' && row.dataset.daily === 'false') {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-});
-
-// Set today's date for all date inputs
-document.addEventListener('DOMContentLoaded', function() {
-    const today = new Date().toISOString().split('T')[0];
-    document.querySelectorAll('input[type="date"]').forEach(input => {
-        if (!input.value) {
-            input.value = today;
-        }
-    });
-    
-    // Update progress bars for tank levels
-    document.querySelectorAll('input[name^="level_"]').forEach(input => {
-        input.addEventListener('input', function() {
-            const tankId = this.name.split('_')[1];
-            const progressBar = document.querySelector(`[data-tank-id="${tankId}"]`);
-            const capacity = parseFloat(progressBar.dataset.capacity);
-            const currentLevel = parseFloat(this.value) || 0;
-            
-            const percentage = Math.min((currentLevel / capacity) * 100, 100);
-            progressBar.style.width = percentage + '%';
-            progressBar.textContent = percentage.toFixed(1) + '%';
-            
-            // Change color based on level
-            progressBar.className = 'progress-bar';
-            if (percentage < 25) {
-                progressBar.classList.add('bg-danger');
-            } else if (percentage < 50) {
-                progressBar.classList.add('bg-warning');
-            } else if (percentage < 80) {
-                progressBar.classList.add('bg-info');
-            } else {
-                progressBar.classList.add('bg-success');
-            }
-        });
-    });
-});
-
-// Clean water form submission with date check
+/* --- Tab Giếng khoan --- */
 document.addEventListener('DOMContentLoaded', function () {
-  const form = document.getElementById('cleanWaterForm');
-  if (!form) return;
+  const wellForm = document.getElementById('wellForm');
+  if (wellForm) {
+    wellForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const dateVal = (wellForm.querySelector('input[name="date"]') || {}).value;
+      const allIds = Array.from(wellForm.querySelectorAll('input[name="well_ids"]')).map(i => i.value);
 
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const dateInput = form.querySelector('input[name="date"]');
-    const dateVal = dateInput ? dateInput.value : '';
-    if (!dateVal) { form.submit(); return; }
+      // Lọc các giếng đã nhập (kể cả "0")
+      const filled = allIds
+        .map(id => {
+          const el = wellForm.querySelector(`input[name="production_${id}"]`);
+          const raw = el ? (el.value || '').trim() : '';
+          return raw === '' ? null : { id: Number(id), value: raw };
+        })
+        .filter(Boolean);
 
-    try {
-      const res = await fetch(`{{ url_for('clean_water_exists') }}?date=${encodeURIComponent(dateVal)}`, { credentials: 'same-origin' });
-      const data = await res.json();
-      if (data.exists) {
-        const confirmOverwrite = window.confirm('Đã có dữ liệu cho ngày này. Bạn có muốn ghi đè không?');
-        if (!confirmOverwrite) return;
-        document.getElementById('overwrite-flag').value = '1';
+      if (!dateVal || filled.length === 0) {
+        wellForm.submit(); return;
       }
-    } catch (_) { /* ignore, fallback submit */ }
-    form.submit();
-  });
+
+      // Gọi API kiểm tra chỉ với các giếng đã nhập
+      const idsParam = filled.map(f => f.id).join(',');
+      try {
+        const url = `{{ url_for('well_production_exists') }}?date=${encodeURIComponent(dateVal)}&well_ids=${encodeURIComponent(idsParam)}`;
+        const res = await fetch(url, { credentials: 'same-origin' });
+        const data = await res.json();
+
+        if (data.exists && Array.isArray(data.wells) && data.wells.length) {
+          // Lấy danh sách giếng đã nhập và đã có dữ liệu -> sẽ ghi đè
+          const existingSet = new Set(data.wells.map(Number));
+          const toOverwrite = filled.filter(f => existingSet.has(f.id));
+          if (toOverwrite.length) {
+            const lines = toOverwrite.map(f => `- Giếng ${f.id}: ${f.value} m³`).join('\n');
+            const ok = window.confirm(
+              `Đã có dữ liệu ngày ${dateVal} cho một số giếng.\n` +
+              `Bạn sắp ghi đè các giếng sau:\n${lines}\n\nTiếp tục?`
+            );
+            if (!ok) return;
+            // Gửi danh sách giếng cần ghi đè
+            document.getElementById('overwrite-ids').value = toOverwrite.map(f => f.id).join(',');
+          }
+        }
+      } catch (_) { /* bỏ qua lỗi mạng, vẫn submit */ }
+
+      wellForm.submit();
+    });
+  }
 });
 
-// Well form submission with overwrite check
-document.addEventListener('DOMContentLoaded', function () {
-  const form = document.getElementById('wellForm');
+/* --- Tab Nước thải (NMNT 1/2) --- */
+function hasAnyValue(form, names) {
+  return names.some(n => {
+    const el = form.querySelector(`[name="${n}"]`);
+    const v = el ? (el.value || '').trim() : '';
+    return v !== '';
+  });
+}
+
+async function attachWastewaterFormHandler(formId, overwriteId, plantNumber) {
+  const form = document.getElementById(formId);
   if (!form) return;
+
+  // Map tên input -> nhãn hiển thị
+  const numericFields = ['wastewater_meter','input_flow_tqt','output_flow_tqt','sludge_output','electricity','chemical_usage'];
+  const labelsMap = {
+    wastewater_meter: 'Đồng hồ nước thải',
+    input_flow_tqt: 'Lưu lượng đầu vào TQT',
+    output_flow_tqt: 'Lưu lượng đầu ra TQT',
+    sludge_output: 'Bùn thải',
+    electricity: 'Điện năng',
+    chemical_usage: 'Hóa chất'
+  };
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     const dateVal = (form.querySelector('input[name="date"]') || {}).value;
-    const ids = Array.from(form.querySelectorAll('input[name="well_ids"]')).map(i => i.value);
 
-    // Lọc chỉ các giếng có nhập số (kể cả "0")
-    const filledIds = ids.filter(id => {
-      const el = form.querySelector(`input[name="production_${id}"]`);
-      if (!el) return false;
-      const raw = (el.value || '').trim();
-      if (raw === '') return false;
-      // chấp nhận "0", "0,0", "0.0"
-      return true;
-    });
-
-    if (!dateVal || filledIds.length === 0) {
-      form.submit();
-      return;
+    // Chỉ kiểm tra khi có nhập ít nhất một trường
+    const filled = getFilledNumericFields(form, numericFields, labelsMap);
+    if (!dateVal || filled.length === 0) {
+      form.submit(); return;
     }
 
     try {
-      const url = `{{ url_for('well_production_exists') }}?date=${encodeURIComponent(dateVal)}&well_ids=${encodeURIComponent(filledIds.join(','))}`;
+      const url = `{{ url_for('wastewater_plant_exists') }}?date=${encodeURIComponent(dateVal)}&plant_numbers=${plantNumber}`;
       const res = await fetch(url, { credentials: 'same-origin' });
       const data = await res.json();
 
-      if (data.exists && Array.isArray(data.wells) && data.wells.length) {
-        // Chỉ hỏi ghi đè cho những giếng đã có và bạn đã nhập
-        const msg = `Đã có dữ liệu ngày ${dateVal} cho giếng: ${data.wells.join(', ')}.\n` +
-                    `Bạn có muốn ghi đè các giếng này không?`;
-        const ok = window.confirm(msg);
+      if (data.exists && Array.isArray(data.plants) && data.plants.includes(plantNumber)) {
+        const lines = filled.map(f => `- ${f.label}: ${f.value}`).join('\n');
+        const ok = window.confirm(
+          `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước thải ${plantNumber}.\n` +
+          `Bạn sắp ghi đè các trường sau:\n${lines}\n\nTiếp tục?`
+        );
         if (!ok) return;
-        document.getElementById('overwrite-ids').value = data.wells.join(',');
+        document.getElementById(overwriteId).value = '1';
       }
-    } catch (_) { /* ignore lỗi mạng, tiếp tục submit */ }
+    } catch (_) { /* ignore mạng */ }
 
     form.submit();
   });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  attachWastewaterFormHandler('wastewaterForm1', 'overwrite-wastewater-1', 1);
+  attachWastewaterFormHandler('wastewaterForm2', 'overwrite-wastewater-2', 2);
 });
 </script>
 {% endblock %}

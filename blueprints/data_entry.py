@@ -62,9 +62,11 @@ def clean_water_plant_exists():
     return jsonify({'exists': exists_by_keys(CleanWaterPlant, {'date': v})})
 
 
+# Helper: ở lại đúng tab
 def _redirect_to_tab(anchor: str):
     return redirect(url_for('data_entry.data_entry') + f'#{anchor}')
 
+# Helper: parse số, rỗng -> None (để bỏ qua cập nhật khi update)
 def parse_float_opt(val):
     s = ('' if val is None else str(val).strip())
     if not s:
@@ -101,6 +103,30 @@ def well_production_exists():
     ).all()
     exist_ids = sorted({r.well_id for r in rows})
     return jsonify({'exists': len(exist_ids) > 0, 'wells': exist_ids})
+
+@bp.route('/api/wastewater-plant/exists')
+@login_required
+def wastewater_plant_exists():
+    # GET ?date=YYYY-MM-DD&plant_numbers=1,2
+    date_str = request.args.get('date')
+    the_date = coerce_opt(date_str, 'date')
+    if the_date is None:
+        return jsonify({'exists': False, 'plants': []}), 400
+
+    pn_param = request.args.get('plant_numbers') or request.args.get('plant_number', '')
+    try:
+        numbers = [int(x) for x in str(pn_param).split(',') if str(x).strip().isdigit()]
+    except Exception:
+        numbers = []
+    if not numbers:
+        return jsonify({'exists': False, 'plants': []})
+
+    rows = db.session.query(WastewaterPlant.plant_number).filter(
+        WastewaterPlant.date == the_date,
+        WastewaterPlant.plant_number.in_(numbers)
+    ).all()
+    exist_nums = sorted({r.plant_number for r in rows})
+    return jsonify({'exists': len(exist_nums) > 0, 'plants': exist_nums})
 
 @bp.route('/submit-well-data', methods=['POST'])
 @login_required
@@ -201,31 +227,39 @@ def submit_wastewater_plant():
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
         plant_number = int(request.form['plant_number'])
+        overwrite = request.form.get('overwrite') == '1'
+        anchor = f'wastewater-{plant_number}'
+
         existing = WastewaterPlant.query.filter_by(date=entry_date, plant_number=plant_number).first()
+        if existing and not overwrite:
+            flash(f'Đã có dữ liệu ngày {entry_date:%d/%m/%Y} cho NMNT {plant_number}. Chọn "Ghi đè" nếu muốn thay thế.', 'warning')
+            return _redirect_to_tab(anchor)
+
+        # Các trường số của NMNT
+        fields = ['wastewater_meter', 'input_flow_tqt', 'output_flow_tqt', 'sludge_output', 'electricity', 'chemical_usage']
+
         if existing:
-            existing.wastewater_meter = float(request.form.get('wastewater_meter', 0))
-            existing.input_flow_tqt = float(request.form.get('input_flow_tqt', 0))
-            existing.output_flow_tqt = float(request.form.get('output_flow_tqt', 0))
-            existing.sludge_output = float(request.form.get('sludge_output', 0))
-            existing.electricity = float(request.form.get('electricity', 0))
-            existing.chemical_usage = float(request.form.get('chemical_usage', 0))
+            # Cập nhật có chọn lọc: chỉ trường nào nhập giá trị mới
+            for f in fields:
+                v = parse_float_opt(request.form.get(f))
+                if v is not None:
+                    setattr(existing, f, v)
         else:
+            # Tạo mới: trường rỗng -> 0
+            payload = {}
+            for f in fields:
+                v = parse_float_opt(request.form.get(f))
+                payload[f] = v if v is not None else 0.0
             db.session.add(WastewaterPlant(
-                plant_number=plant_number, date=entry_date,
-                wastewater_meter=float(request.form.get('wastewater_meter', 0)),
-                input_flow_tqt=float(request.form.get('input_flow_tqt', 0)),
-                output_flow_tqt=float(request.form.get('output_flow_tqt', 0)),
-                sludge_output=float(request.form.get('sludge_output', 0)),
-                electricity=float(request.form.get('electricity', 0)),
-                chemical_usage=float(request.form.get('chemical_usage', 0)),
-                created_by=current_user.id
+                plant_number=plant_number, date=entry_date, created_by=current_user.id, **payload
             ))
+
         db.session.commit()
         flash(f'Wastewater plant {plant_number} data saved successfully', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
-    return redirect(url_for('data_entry.data_entry'))
+    return _redirect_to_tab(anchor)
 
 @bp.route('/submit-tank-levels', methods=['POST'])
 @login_required
