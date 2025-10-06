@@ -62,6 +62,9 @@ add_alias('/api/clean-water-plant/exists', 'clean_water_exists', 'data_entry.cle
 # ...existing code after registering blueprints and add_alias() helper...
 add_alias('/api/exists/<model_key>', 'model_exists', 'data_entry.model_exists')
 
+add_alias('/api/well-production/exists', 'well_production_exists', 'data_entry.well_production_exists')
+
+
 
 # from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response, send_file
 # from flask_login import login_user, logout_user, login_required, current_user

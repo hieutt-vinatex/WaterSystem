@@ -47,7 +47,9 @@
                 <h5><i class="fas fa-water me-2"></i>Sản lượng giếng khoan</h5>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('submit_well_data') }}">
+                <form id="wellForm" action="{{ url_for('submit_well_data') }}" method="post">
+                    <input type="hidden" name="return_to" value="wells">
+                    <input type="hidden" name="overwrite_ids" id="overwrite-ids" value="">
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label for="well-date" class="form-label">Ngày</label>
@@ -513,5 +515,48 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+// Well form submission with overwrite check
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('wellForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const dateVal = (form.querySelector('input[name="date"]') || {}).value;
+    const ids = Array.from(form.querySelectorAll('input[name="well_ids"]')).map(i => i.value);
+
+    // Lọc chỉ các giếng có nhập số (kể cả "0")
+    const filledIds = ids.filter(id => {
+      const el = form.querySelector(`input[name="production_${id}"]`);
+      if (!el) return false;
+      const raw = (el.value || '').trim();
+      if (raw === '') return false;
+      // chấp nhận "0", "0,0", "0.0"
+      return true;
+    });
+
+    if (!dateVal || filledIds.length === 0) {
+      form.submit();
+      return;
+    }
+
+    try {
+      const url = `{{ url_for('well_production_exists') }}?date=${encodeURIComponent(dateVal)}&well_ids=${encodeURIComponent(filledIds.join(','))}`;
+      const res = await fetch(url, { credentials: 'same-origin' });
+      const data = await res.json();
+
+      if (data.exists && Array.isArray(data.wells) && data.wells.length) {
+        // Chỉ hỏi ghi đè cho những giếng đã có và bạn đã nhập
+        const msg = `Đã có dữ liệu ngày ${dateVal} cho giếng: ${data.wells.join(', ')}.\n` +
+                    `Bạn có muốn ghi đè các giếng này không?`;
+        const ok = window.confirm(msg);
+        if (!ok) return;
+        document.getElementById('overwrite-ids').value = data.wells.join(',');
+      }
+    } catch (_) { /* ignore lỗi mạng, tiếp tục submit */ }
+
+    form.submit();
+  });
+});
 </script>
 {% endblock %}

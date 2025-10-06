@@ -62,6 +62,46 @@ def clean_water_plant_exists():
     return jsonify({'exists': exists_by_keys(CleanWaterPlant, {'date': v})})
 
 
+def _redirect_to_tab(anchor: str):
+    return redirect(url_for('data_entry.data_entry') + f'#{anchor}')
+
+def parse_float_opt(val):
+    s = ('' if val is None else str(val).strip())
+    if not s:
+        return None
+    if s.count(',') and s.count('.') == 0:
+        s = s.replace(',', '.')
+    else:
+        s = s.replace(',', '')
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+@bp.route('/api/well-production/exists')
+@login_required
+def well_production_exists():
+    """
+    GET ?date=YYYY-MM-DD&well_ids=1,2,3
+    Trả: {exists: bool, wells: [well_id,...]}
+    """
+    date_str = request.args.get('date')
+    the_date = coerce_opt(date_str, 'date')
+    if the_date is None:
+        return jsonify({'exists': False, 'wells': []}), 400
+
+    ids_param = request.args.get('well_ids', '')
+    well_ids = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
+    if not well_ids:
+        return jsonify({'exists': False, 'wells': []})
+
+    rows = db.session.query(WellProduction.well_id).filter(
+        WellProduction.date == the_date,
+        WellProduction.well_id.in_(well_ids)
+    ).all()
+    exist_ids = sorted({r.well_id for r in rows})
+    return jsonify({'exists': len(exist_ids) > 0, 'wells': exist_ids})
+
 @bp.route('/submit-well-data', methods=['POST'])
 @login_required
 def submit_well_data():
@@ -70,21 +110,48 @@ def submit_well_data():
         return redirect(url_for('dashboard.dashboard'))
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        for well_id in request.form.getlist('well_ids'):
-            production = float(request.form.get(f'production_{well_id}', 0))
-            existing = WellProduction.query.filter_by(well_id=well_id, date=entry_date).first()
-            if existing:
-                existing.production = production
+
+        # Danh sách giếng trên form
+        all_ids = [int(x) for x in request.form.getlist('well_ids') if str(x).isdigit()]
+
+        # Chỉ lấy các giếng có nhập số (kể cả 0)
+        filled = {}
+        for wid in all_ids:
+            v = parse_float_opt(request.form.get(f'production_{wid}'))
+            if v is not None:
+                filled[wid] = v
+
+        if not filled:
+            flash('Không có dữ liệu để lưu', 'warning')
+            return redirect(url_for('data_entry.data_entry') + '#wells')
+
+        # Lấy các bản ghi đã tồn tại của những giếng có nhập
+        existing_rows = WellProduction.query.filter(
+            WellProduction.date == entry_date,
+            WellProduction.well_id.in_(list(filled.keys()))
+        ).all()
+        exist_map = {r.well_id: r for r in existing_rows}
+
+        # Danh sách giếng cho phép ghi đè (từ hidden overwrite_ids: "2,5,7")
+        overwrite_ids = set(int(x) for x in request.form.get('overwrite_ids', '').split(',') if x.strip().isdigit())
+
+        # Lưu: chỉ ghi đè những giếng được xác nhận; giếng chưa có thì tạo mới
+        for wid, val in filled.items():
+            if wid in exist_map:
+                if wid in overwrite_ids:
+                    exist_map[wid].production = val
+                # nếu không xác nhận ghi đè -> bỏ qua
             else:
                 db.session.add(WellProduction(
-                    well_id=well_id, date=entry_date, production=production, created_by=current_user.id
+                    well_id=wid, date=entry_date, production=val, created_by=current_user.id
                 ))
+
         db.session.commit()
         flash('Well production data saved successfully', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
-    return redirect(url_for('data_entry.data_entry'))
+    return redirect(url_for('data_entry.data_entry') + '#wells')
 
 
 @bp.route('/submit-clean-water-plant', methods=['POST'])
