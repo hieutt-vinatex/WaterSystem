@@ -96,7 +96,7 @@
                 <h5><i class="fas fa-tint me-2"></i>Nhà máy xử lý nước sạch</h5>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('submit_clean_water_plant') }}">
+                <form id="cleanWaterForm" action="{{ url_for('submit_clean_water_plant') }}" method="post">
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label for="clean-water-date" class="form-label">Ngày</label>
@@ -149,6 +149,8 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <input type="hidden" name="overwrite" id="overwrite-flag" value="0" />
                     
                     <div class="text-end mt-3">
                         <button type="submit" class="btn btn-primary">
@@ -486,5 +488,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Clean water form submission with date check
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('cleanWaterForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const dateInput = form.querySelector('input[name="date"]');
+    const dateVal = dateInput ? dateInput.value : '';
+    if (!dateVal) { form.submit(); return; }
+
+    try {
+      const res = await fetch(`{{ url_for('clean_water_exists') }}?date=${encodeURIComponent(dateVal)}`, { credentials: 'same-origin' });
+      const data = await res.json();
+      if (data.exists) {
+        const confirmOverwrite = window.confirm('Đã có dữ liệu cho ngày này. Bạn có muốn ghi đè không?');
+        if (!confirmOverwrite) return;
+        document.getElementById('overwrite-flag').value = '1';
+      }
+    } catch (_) { /* ignore, fallback submit */ }
+    form.submit();
+  });
+});
+
 </script>
 {% endblock %}

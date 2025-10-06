@@ -56,6 +56,12 @@ add_alias('/customers/<int:customer_id>/delete', 'delete_customer', 'customers.d
 # KPI API alias (giữ /api/kpi-data hoạt động dù chuyển blueprint)
 add_alias('/api/kpi-data', 'kpi_data', 'charts.kpi_data')
 
+# ...sau khi register blueprint và khai báo add_alias()...
+add_alias('/api/clean-water-plant/exists', 'clean_water_exists', 'data_entry.clean_water_plant_exists')
+
+# ...existing code after registering blueprints and add_alias() helper...
+add_alias('/api/exists/<model_key>', 'model_exists', 'data_entry.model_exists')
+
 
 # from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response, send_file
 # from flask_login import login_user, logout_user, login_required, current_user
