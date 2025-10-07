@@ -51,7 +51,7 @@ def new_user():
         if not username: errors.append('Tên đăng nhập là bắt buộc')
         if not password: errors.append('Mật khẩu là bắt buộc')
         if password != confirm: errors.append('Xác nhận mật khẩu không khớp')
-        if role not in ['DATA_ENTRY', 'PLANT_MANAGER', 'ADMIN']:
+        if role not in ['DATA_ENTRY', 'PLANT_MANAGER', 'ADMIN', 'ACCOUNTING', 'LEADERSHIP']:
             errors.append('Vai trò không hợp lệ')
         if db.session.query(User.id).filter(User.username == username).first():
             errors.append('Tên đăng nhập đã tồn tại')
@@ -107,7 +107,7 @@ def edit_user(user_id):
         confirm = request.form.get('confirm_password') or ''
 
         errors = []
-        if role not in ['DATA_ENTRY', 'PLANT_MANAGER', 'ADMIN']:
+        if role not in ['DATA_ENTRY', 'PLANT_MANAGER', 'ADMIN', 'ACCOUNTING', 'LEADERSHIP']:
             errors.append('Vai trò không hợp lệ')
         if email and db.session.query(User.id).filter(User.email == email, User.id != user.id).first():
             errors.append('Email đã tồn tại')

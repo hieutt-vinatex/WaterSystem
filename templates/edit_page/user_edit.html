@@ -33,14 +33,31 @@
           <input name="email" type="email" class="form-control" value="{{ user.email or '' }}">
         </div>
 
-        <div class="col-md-4">
-          <label class="form-label">Vai trò</label>
-          <select name="role" class="form-select" required>
-            <option value="DATA_ENTRY" {{ 'selected' if user.role=='DATA_ENTRY' else '' }}>Nhập liệu</option>
-            <option value="PLANT_MANAGER" {{ 'selected' if user.role=='PLANT_MANAGER' else '' }}>Quản lý nhà máy</option>
-            <option value="ADMIN" {{ 'selected' if user.role=='ADMIN' else '' }}>Quản trị</option>
-          </select>
-        </div>
+<div class="col-md-4">
+  <label class="form-label">Vai trò</label>
+  {% set allowed_roles = ['DATA_ENTRY','PLANT_MANAGER','LEADERSHIP','ADMIN','ACCOUNTING'] %}
+  {% set role_labels = {
+    'DATA_ENTRY':'Nhập liệu',
+    'PLANT_MANAGER':'Quản lý nhà máy',
+    'LEADERSHIP':'Ban Lãnh Đạo',
+    'ADMIN':'Quản trị',
+    'ACCOUNTING':'Kế toán'
+  } %}
+  {# Chuyển Enum -> string name nếu cần #}
+  {% set role_value = (user.role.name if (user.role is not none and (user.role.name is defined)) else user.role) %}
+  <select name="role" class="form-select" required>
+    <option value="" disabled {{ 'selected' if not role_value else '' }}>-- Chọn vai trò --</option>
+    {% for r in allowed_roles %}
+      <option value="{{ r }}" {{ 'selected' if role_value == r else '' }}>
+        {{ role_labels.get(r, r.replace('_',' ')) }}
+      </option>
+    {% endfor %}
+    {% if role_value and role_value not in allowed_roles %}
+      <!-- Fallback: hiển thị đúng quyền hiện có nếu ngoài danh sách -->
+      <option value="{{ role_value }}" selected>{{ role_labels.get(role_value, role_value|replace('_',' ')) }}</option>
+    {% endif %}
+  </select>
+</div>
 
         <div class="col-md-4">
           <label class="form-label">Mật khẩu mới</label>

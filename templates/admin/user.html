@@ -47,32 +47,44 @@
         </thead>
         <tbody id="users-table-body">
           {% for u in users %}
-          <tr class="user-admin-row" data-status="{{ 'active' if u.is_active else 'inactive' }}" data-role="{{ u.role or '' }}">
+          {# Chuẩn hóa role và active #}
+          {% set role_value = (u.role.name if (u.role is not none and (u.role.name is defined)) else u.role) %}
+          {% set active_value = (u.is_active if (u.is_active is defined) else (u.active if (u.active is defined) else False)) %}
+
+          <tr class="user-admin-row"
+              data-status="{{ 'active' if active_value else 'inactive' }}"
+               data-role="{{ (role_value or '')|lower }}">
             <td>{{ u.id }}</td>
             <td><strong>{{ u.username }}</strong></td>
             <td>{{ u.full_name or '-' }}</td>
             <td>{{ u.email or '-' }}</td>
             <td>
-              {% if u.role == 'ADMIN' %}
+             {% if role_value == 'ADMIN' %}
                 <span class="badge bg-danger">Quản trị</span>
-              {% elif u.role == 'PLANT_MANAGER' %}
+             {% elif role_value == 'PLANT_MANAGER' %}
                 <span class="badge bg-info">Quản lý nhà máy</span>
-              {% else %}
-                <span class="badge bg-secondary">Nhập liệu</span>
+             {% elif role_value == 'LEADERSHIP' %}
+                <span class="badge bg-warning">Ban Lãnh Đạo</span>
+             {% elif role_value == 'ACCOUNTING' %}
+                <span class="badge bg-info">Kế toán</span>
+             {% elif role_value == 'DATA_ENTRY' %}
+               <span class="badge bg-secondary">Nhập liệu</span>
+             {% else %}
+               <span class="badge bg-secondary">{{ (role_value or 'UNKNOWN')|replace('_',' ') }}</span>
               {% endif %}
             </td>
             <td>
-              {% if u.is_active %}
+              {% if active_value %}
                 <span class="badge bg-success">Hoạt động</span>
               {% else %}
                 <span class="badge bg-secondary">Ngưng</span>
               {% endif %}
             </td>
             <td class="text-nowrap">
-              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_user', user_id=u.id) }}">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.edit_user', user_id=u.id) }}">
                 <i class="fas fa-edit"></i>
               </a>
-              <form method="post" action="{{ url_for('delete_user', user_id=u.id) }}" style="display:inline"
+              <form method="post" action="{{ url_for('admin.delete_user', user_id=u.id) }}" style="display:inline"
                     onsubmit="return confirm('Xác nhận xóa người dùng #{{ u.id }}: {{ u.username }} ?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
                   <i class="fas fa-trash"></i>
