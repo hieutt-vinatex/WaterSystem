@@ -57,6 +57,11 @@ add_alias('/users/new', 'new_user', 'admin.new_user', methods=['GET', 'POST'])
 add_alias('/users/<int:user_id>/edit', 'edit_user', 'admin.edit_user', methods=['GET', 'POST'])
 add_alias('/users/<int:user_id>/delete', 'delete_user', 'admin.delete_user', methods=['POST'])
 
+# Wells management
+# add_alias('/wells', 'wells_admin', 'admin.wells_admin')
+add_alias('/wells/new', 'new_well', 'admin.new_well', methods=['GET','POST'])
+add_alias('/wells/<int:well_id>/edit', 'edit_well', 'admin.edit_well', methods=['GET','POST'])
+add_alias('/wells/<int:well_id>/delete', 'delete_well', 'admin.delete_well', methods=['POST'])
 
 # KPI API alias (giữ /api/kpi-data hoạt động dù chuyển blueprint)
 add_alias('/api/kpi-data', 'kpi_data', 'charts.kpi_data')

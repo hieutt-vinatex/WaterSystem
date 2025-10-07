@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 @login_required
 def edit_customer(customer_id):
     customer = Customer.query.get_or_404(customer_id)
+    errors = []
     if request.method == 'POST':
         customer.company_name = request.form.get('company_name', customer.company_name)
         customer.contact_person = request.form.get('contact_person', customer.contact_person)
@@ -23,6 +24,9 @@ def edit_customer(customer_id):
         customer.is_active = True if request.form.get('is_active') == 'on' else False
         customer.location = request.form.get('location', customer.location)
         customer.water_ratio = request.form.get('water_ratio', '').strip()
+
+        if Customer.query.filter(Customer.water_ratio == customer.water_ratio, Customer.id != customer.id).first():
+            errors.append(f"Tỷ lệ nước '{customer.company_name}' đã tồn tại")
         db.session.add(customer); db.session.commit()
         flash('Cập nhật khách hàng thành công.', 'success')
         session['active_tab'] = 'customers'

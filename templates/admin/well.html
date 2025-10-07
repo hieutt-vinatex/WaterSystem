@@ -1,0 +1,58 @@
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5><i class="fas fa-water me-2"></i>Quản lý giếng khoan</h5>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('new_well') }}">
+      <i class="fas fa-plus me-2"></i>Thêm giếng khoan
+    </a>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Mã giếng</th>
+            <th>Tên giếng</th>
+            <th>Công suất (m³/ngày)</th>
+            <th>Loại</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for w in wells %}
+          <tr>
+            <td>{{ w.id }}</td>
+            <td><strong>{{ w.code }}</strong></td>
+            <td>{{ w.name or '-' }}</td>
+            <td>{{ "%.0f"|format(w.capacity or 0) }}</td>
+            <td>
+              {% if w.is_backup %}<span class="badge bg-warning">Dự phòng</span>
+              {% else %}<span class="badge bg-primary">Chính</span>{% endif %}
+            </td>
+            <td>
+              {% if w.is_active %}<span class="badge bg-success">Hoạt động</span>
+              {% else %}<span class="badge bg-secondary">Ngưng</span>{% endif %}
+            </td>
+            <td class="text-nowrap">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_well', well_id=w.id) }}">
+                <i class="fas fa-edit"></i>
+              </a>
+              <form method="post" action="{{ url_for('admin.delete_well', well_id=w.id) }}" style="display:inline"
+                    onsubmit="return confirm('Xác nhận xóa giếng {{ w.code }}?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center">Chưa có giếng khoan.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
