@@ -76,6 +76,10 @@ add_alias('/api/well-production/exists', 'well_production_exists', 'data_entry.w
 add_alias('/api/wastewater-plant/exists', 'wastewater_plant_exists', 'data_entry.wastewater_plant_exists')
 add_alias('/api/customer-readings/exists', 'customer_readings_exists', 'data_entry.customer_readings_exists')
 
+# add_alias('/tanks', 'tanks_admin', 'admin.tanks_admin')
+add_alias('/tanks/new', 'new_tank', 'admin.new_tank', methods=['GET','POST'])
+add_alias('/tanks/<int:tank_id>/edit', 'edit_tank', 'admin.edit_tank', methods=['GET','POST'])
+add_alias('/tanks/<int:tank_id>/delete', 'delete_tank', 'admin.delete_tank', methods=['POST'])
 
 
 # from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response, send_file

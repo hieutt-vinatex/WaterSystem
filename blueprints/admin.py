@@ -272,3 +272,137 @@ def delete_well(well_id):
         db.session.rollback()
         flash(f'Lỗi xóa giếng khoan: {str(e)}', 'error')
     return redirect(url_for('admin.admin', active_tab='wells'))
+
+@bp.route('/tanks', methods=['GET'], endpoint='tanks_admin')
+@login_required
+def tanks_admin():
+    tanks = WaterTank.query.order_by(WaterTank.id).all()
+    return render_template('admin/water_tank.html', tanks=tanks)
+
+@bp.route('/tanks/new', methods=['GET', 'POST'], endpoint='new_tank')
+@login_required
+def new_tank():
+    if request.method == 'POST':
+        # code = (request.form.get('code') or '').strip()
+        name = (request.form.get('name') or '').strip()
+        cap_raw = (request.form.get('capacity') or '').strip()  # dung tích/công suất
+        is_active = (request.form.get('is_active') == 'on')
+
+        errors = []
+        # Validate cơ bản
+        # if not code: errors.append('Mã bể là bắt buộc')
+        # if not name: errors.append('Tên bể là bắt buộc')
+
+        # Unique code nếu model có cột 'code'
+        # code_col = getattr(WaterTank, 'code', None)
+        # if code_col is not None and code:
+        #     if WaterTank.query.filter(code_col == code).first():
+        #         errors.append(f"Mã bể '{code}' đã tồn tại")
+
+        # Parse capacity (nếu có)
+        capacity = 0
+        if cap_raw:
+            try:
+                capacity = float(cap_raw)
+                if capacity < 0: errors.append('Dung tích không được âm')
+            except ValueError:
+                errors.append('Dung tích không hợp lệ')
+
+        if errors:
+            for e in errors: flash(e, 'error')
+            return render_template('new_page/water_tank_new.html', form=request.form)
+
+        try:
+            tank = WaterTank()
+            # if hasattr(tank, 'code'): tank.code = code
+            if hasattr(tank, 'name'): tank.name = name
+            # Gán capacity/volume theo cột có sẵn
+            if hasattr(tank, 'capacity'):
+                tank.capacity = capacity
+            elif hasattr(tank, 'volume'):
+                tank.volume = capacity
+            # Gán trạng thái
+            # if hasattr(tank, 'is_active'):
+            #     tank.is_active = is_active
+            # elif hasattr(tank, 'active'):
+            #     tank.active = is_active
+
+            db.session.add(tank)
+            db.session.commit()
+            flash('Đã thêm bể chứa', 'success')
+            return redirect(url_for('admin.admin', active_tab='tanks'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Lỗi thêm bể chứa: {str(e)}', 'error')
+            return render_template('new_page/water_tank_new.html', form=request.form)
+
+    # GET
+    return render_template('new_page/water_tank_new.html')
+
+@bp.route('/tanks/<int:tank_id>/edit', methods=['GET', 'POST'], endpoint='edit_tank')
+@login_required
+def edit_tank(tank_id):
+    tank = WaterTank.query.get_or_404(tank_id)
+
+    if request.method == 'POST':
+        # code = (request.form.get('code') or '').strip()
+        name = (request.form.get('name') or '').strip()
+        cap_raw = (request.form.get('capacity') or '').strip()
+        is_active = (request.form.get('is_active') == 'on')
+
+        errors = []
+        # if not code: errors.append('Mã bể là bắt buộc')
+        # if not name: errors.append('Tên bể là bắt buộc')
+
+        # code_col = getattr(WaterTank, 'code', None)
+        # if code_col is not None and code:
+        #     if WaterTank.query.filter(code_col == code, WaterTank.id != tank.id).first():
+        #         errors.append(f"Mã bể '{code}' đã tồn tại")
+
+        capacity = 0
+        if cap_raw:
+            try:
+                capacity = float(cap_raw)
+                if capacity < 0: errors.append('Dung tích không được âm')
+            except ValueError:
+                errors.append('Dung tích không hợp lệ')
+
+        if errors:
+            for e in errors: flash(e, 'error')
+            return render_template('edit_page/water_tank_edit.html', tank=tank, form=request.form)
+
+        try:
+            # if hasattr(tank, 'code'): tank.code = code
+            if hasattr(tank, 'name'): tank.name = name
+            if hasattr(tank, 'capacity'):
+                tank.capacity = capacity
+            elif hasattr(tank, 'volume'):
+                tank.volume = capacity
+            # if hasattr(tank, 'is_active'):
+            #     tank.is_active = is_active
+            # elif hasattr(tank, 'active'):
+            #     tank.active = is_active
+
+            db.session.commit()
+            flash('Đã cập nhật bể chứa', 'success')
+            return redirect(url_for('admin.admin', active_tab='tanks'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Lỗi cập nhật bể chứa: {str(e)}', 'error')
+            return render_template('edit_page/water_tank_edit.html', tank=tank, form=request.form)
+
+    # GET
+    return render_template('edit_page/water_tank_edit.html', tank=tank)
+
+@bp.route('/tanks/<int:tank_id>/delete', methods=['POST'], endpoint='delete_tank')
+@login_required
+def delete_tank(tank_id):
+    tank = WaterTank.query.get_or_404(tank_id)
+    try:
+        db.session.delete(tank)
+        db.session.commit()
+        flash('Đã xóa bể chứa', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Lỗi xóa bể chứa: {str(e)}', 'error')
+    return redirect(url_for('admin.admin', active_tab='tanks'))
