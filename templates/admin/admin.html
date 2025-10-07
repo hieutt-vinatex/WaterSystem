@@ -46,11 +46,14 @@
 
 <div class="tab-content" id="adminTabsContent">
     <!-- Users Tab -->
-    <div class="tab-pane fade {% if active_tab=='users' %}show active{% endif %}" id="users" role="tabpanel">
+     <div class="tab-pane fade {% if active_tab=='users' %}show active{% endif %}" id="users" role="tabpanel">
+        {% include 'admin/user.html' %}
+    </div>
+    <!-- <div class="tab-pane fade {% if active_tab=='users' %}show active{% endif %}" id="users" role="tabpanel">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5><i class="fas fa-users me-2"></i>Quản lý người dùng</h5>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <button class="btn btn-primary btn-sm" data-bs-target="#addUserModal">
                     <i class="fas fa-plus me-2"></i>Thêm người dùng
                 </button>
             </div>
@@ -106,7 +109,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
     
     <!-- Customers Tab -->
     <!-- <div class="tab-pane fade" id="customers" role="tabpanel">

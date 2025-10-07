@@ -1,0 +1,91 @@
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5><i class="fas fa-users me-2"></i>Quản lý người dùng</h5>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('new_user') }}">
+      <i class="fas fa-plus me-2"></i>Thêm người dùng
+    </a>
+  </div>
+  <div class="card-body">
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <input type="text" class="form-control" id="user-search-admin" placeholder="Tìm kiếm người dùng...">
+      </div>
+      <div class="col-md-3">
+        <select class="form-select" id="user-filter-role">
+          <option value="">Tất cả vai trò</option>
+          <option value="data_entry">Nhập liệu</option>
+          <option value="plant_manager">Quản lý nhà máy</option>
+          <option value="admin">Quản trị</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select class="form-select" id="user-filter-status">
+          <option value="">Tất cả trạng thái</option>
+          <option value="active">Hoạt động</option>
+          <option value="inactive">Ngưng hoạt động</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="text-muted mb-2">
+      Tổng: {{ users|length if users is defined else 0 }} người dùng
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Tên đăng nhập</th>
+            <th>Họ và tên</th>
+            <th>Email</th>
+            <th>Vai trò</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="users-table-body">
+          {% for u in users %}
+          <tr class="user-admin-row" data-status="{{ 'active' if u.is_active else 'inactive' }}" data-role="{{ u.role or '' }}">
+            <td>{{ u.id }}</td>
+            <td><strong>{{ u.username }}</strong></td>
+            <td>{{ u.full_name or '-' }}</td>
+            <td>{{ u.email or '-' }}</td>
+            <td>
+              {% if u.role == 'ADMIN' %}
+                <span class="badge bg-danger">Quản trị</span>
+              {% elif u.role == 'PLANT_MANAGER' %}
+                <span class="badge bg-info">Quản lý nhà máy</span>
+              {% else %}
+                <span class="badge bg-secondary">Nhập liệu</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.is_active %}
+                <span class="badge bg-success">Hoạt động</span>
+              {% else %}
+                <span class="badge bg-secondary">Ngưng</span>
+              {% endif %}
+            </td>
+            <td class="text-nowrap">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_user', user_id=u.id) }}">
+                <i class="fas fa-edit"></i>
+              </a>
+              <form method="post" action="{{ url_for('delete_user', user_id=u.id) }}" style="display:inline"
+                    onsubmit="return confirm('Xác nhận xóa người dùng #{{ u.id }}: {{ u.username }} ?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center">Chưa có người dùng.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

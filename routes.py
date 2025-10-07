@@ -53,6 +53,11 @@ add_alias('/customers/new', 'new_customer', 'customers.new_customer', methods=['
 add_alias('/customers/<int:customer_id>/edit', 'edit_customer', 'customers.edit_customer', methods=['GET', 'POST'])
 add_alias('/customers/<int:customer_id>/delete', 'delete_customer', 'customers.delete_customer', methods=['POST'])
 
+add_alias('/users/new', 'new_user', 'admin.new_user', methods=['GET', 'POST'])
+add_alias('/users/<int:user_id>/edit', 'edit_user', 'admin.edit_user', methods=['GET', 'POST'])
+add_alias('/users/<int:user_id>/delete', 'delete_user', 'admin.delete_user', methods=['POST'])
+
+
 # KPI API alias (giữ /api/kpi-data hoạt động dù chuyển blueprint)
 add_alias('/api/kpi-data', 'kpi_data', 'charts.kpi_data')
 
