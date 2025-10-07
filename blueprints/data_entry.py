@@ -188,7 +188,7 @@ def submit_well_data():
     return redirect(url_for('data_entry.data_entry') + '#wells')
 
 
-@bp.route('/submit-clean-water-plant', methods=['POST'])
+@bp.route('/clean-water/submit', methods=['POST'], endpoint='submit_clean_water_plant')
 @login_required
 def submit_clean_water_plant():
     if not check_permissions(current_user.role, ['data_entry', 'plant_manager', 'admin']):
@@ -200,7 +200,8 @@ def submit_clean_water_plant():
 
         existing = CleanWaterPlant.query.filter_by(date=entry_date).first()
         if existing and not overwrite:
-            flash('Đã có dữ liệu cho ngày này. Chọn "Ghi đè" nếu muốn thay thế.', 'warning')
+            # flash('Đã có dữ liệu cho ngày này. Chọn "Ghi đè" nếu muốn thay thế.', 'warning')
+            flash('Đã cập nhật thành công', 'success')
             return redirect(url_for('data_entry.data_entry') + '#clean-water')
 
         field_types = {

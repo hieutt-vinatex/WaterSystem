@@ -152,8 +152,9 @@
                         </div>
                     </div>
                     
-                    <input type="hidden" name="overwrite" id="overwrite-flag" value="0" />
-                    
+                    <!-- <input type="hidden" name="overwrite" id="overwrite-flag" value="0" /> -->
+                    <input type="hidden" name="return_to" value="clean-water" />
+
                     <div class="text-end mt-3">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>Lưu dữ liệu nhà máy nước sạch
@@ -209,7 +210,11 @@
                                 <input type="number" class="form-control" name="electricity" step="0.1" min="0">
                             </div>
                             
-                            <input type="hidden" name="chemical_usage" value="0">
+                            <!-- <input type="hidden" name="chemical_usage" value="0"> -->
+                            <div class="mb-3">
+                                <label class="form-label">Hóa chất sử dụng (kg)</label>
+                                <input type="number" class="form-control" name="chemical_usage" step="0.1" min="0">
+                            </div>
                             
                             <div class="text-end">
                                 <button type="submit" class="btn btn-primary">
@@ -429,6 +434,52 @@
 
 {% block extra_scripts %}
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Tắt auto scroll restore của trình duyệt
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+  const tabsSelector = '#dataEntryTabs button[data-bs-toggle="tab"]';
+
+  // Hàm ép về đầu trang ở nhiều “nhịp” để thắng mọi restore/autofocus
+  const forceToTop = () => {
+    window.scrollTo(0, 0);                         // ngay lập tức
+    requestAnimationFrame(() => window.scrollTo(0, 0)); // sau frame
+    setTimeout(() => window.scrollTo(0, 0), 0);    // macrotask tiếp theo (Safari)
+  };
+
+  // 1) Gắn listener TRƯỚC khi show tab (để reload cũng scroll-top sau khi tab hiển thị)
+  document.querySelectorAll(tabsSelector).forEach(btn => {
+    btn.addEventListener('shown.bs.tab', e => {
+      const target = e.target.getAttribute('data-bs-target');
+      if (target) sessionStorage.setItem('dataEntryActiveTab', target);
+      forceToTop();
+    });
+  });
+
+  // 2) Khôi phục tab đã lưu (không dùng hash)
+  const savedTab = sessionStorage.getItem('dataEntryActiveTab');
+  if (savedTab) {
+    const trigger = document.querySelector(`${tabsSelector}[data-bs-target="${savedTab}"]`);
+    if (trigger && window.bootstrap) new bootstrap.Tab(trigger).show();
+  }
+
+  // 3) Luôn về đầu trang khi mới load và khi trang được phục hồi từ BFCache
+  forceToTop();
+  window.addEventListener('load', () => forceToTop(), { once: true });
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) forceToTop(); // Safari/Firefox BFCache
+  });
+
+  // 4) Trước khi submit form, nhớ tab đang mở
+  document.querySelectorAll('#dataEntryTabsContent form').forEach(form => {
+    form.addEventListener('submit', () => {
+      const activeBtn = document.querySelector('#dataEntryTabs .nav-link.active');
+      const target = activeBtn ? activeBtn.getAttribute('data-bs-target') : null;
+      if (target) sessionStorage.setItem('dataEntryActiveTab', target);
+    });
+  });
+});
+
 /* --- Tab Nhà máy nước sạch --- */
 document.addEventListener('DOMContentLoaded', function () {
   const cleanForm = document.getElementById('cleanWaterForm');
