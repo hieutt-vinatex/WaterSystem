@@ -278,15 +278,43 @@ def submit_tank_levels():
         return redirect(url_for('dashboard.dashboard'))
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        for tank_id in request.form.getlist('tank_ids'):
-            level = float(request.form.get(f'level_{tank_id}', 0))
+        changes = 0
+
+        for tank_id_raw in request.form.getlist('tank_ids'):
+            # Bỏ qua nếu tank_id không phải số
+            try:
+                tank_id = int(tank_id_raw)
+            except (TypeError, ValueError):
+                continue
+
+            # Chỉ xử lý nếu người dùng có nhập (không rỗng)
+            raw_val = request.form.get(f'level_{tank_id}', None)
+            level = parse_float_opt(raw_val)  # rỗng/không hợp lệ -> None
+            if level is None:
+                # Không nhập gì -> giữ nguyên giá trị cũ (bỏ qua)
+                continue
+
             existing = WaterTankLevel.query.filter_by(tank_id=tank_id, date=entry_date).first()
             if existing:
-                existing.level = level
+                # Cập nhật giá trị mới
+                if existing.level != level:
+                    existing.level = level
+                    changes += 1
             else:
-                db.session.add(WaterTankLevel(tank_id=tank_id, date=entry_date, level=level, created_by=current_user.id))
-        db.session.commit()
-        flash('Mức nước bể chứa đã được lưu thành công', 'success')
+                # Tạo mới nếu chưa có bản ghi
+                db.session.add(WaterTankLevel(
+                    tank_id=tank_id,
+                    date=entry_date,
+                    level=level,
+                    created_by=current_user.id
+                ))
+                changes += 1
+
+        if changes == 0:
+            flash('Không có thay đổi nào được áp dụng.', 'warning')
+        else:
+            db.session.commit()
+            flash('Mức nước bể chứa đã được lưu thành công', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Lỗi khi lưu dữ liệu: {str(e)}', 'error')
