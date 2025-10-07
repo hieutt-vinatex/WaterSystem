@@ -129,10 +129,16 @@ def api_chart_details(chart_type):
         else:
             end_dt = datetime.now().date()
             start_dt = end_dt - timedelta(days=days)
+
         if chart_type == 'wells':
             well_ids_param = request.args.get('well_ids')
+            # Danh sách ID được chọn (nếu có)
             well_ids = [int(x) for x in well_ids_param.split(',') if x.strip().isdigit()] if well_ids_param else None
-            data = get_well_production_range(start_dt, end_dt, well_ids)
+            # Chế độ tổng khi chọn tất cả (well_ids trống/None/'all') hoặc aggregate=1
+            agg_flag = request.args.get('aggregate', '0').lower() in ('1', 'true', 'yes')
+            aggregate = agg_flag or (well_ids_param in (None, '', 'all'))
+            data = get_well_production_range(start_dt, end_dt, well_ids, aggregate=aggregate)
+
         elif chart_type == 'clean-water':
             data = generate_clean_water_details(start_dt, end_dt)
         elif chart_type == 'wastewater':
@@ -146,45 +152,137 @@ def api_chart_details(chart_type):
         logger.error(f"Error in chart details API: {str(e)}")
         return jsonify({'error': 'Lỗi khi tải dữ liệu chi tiết'}), 500
 
-def get_well_production_range(start_date, end_date, well_ids=None):
+def get_well_production_range(start_date, end_date, well_ids=None, aggregate=False):
+    # Danh sách ngày
+    dates = []
+    cur = start_date
+    while cur <= end_date:
+        dates.append(cur)
+        cur += timedelta(days=1)
+
+    if aggregate:
+        # 1) Tổng sản lượng theo ngày
+        q = db.session.query(
+            WellProduction.date,
+            db.func.sum(WellProduction.production).label('total_production')
+        ).filter(WellProduction.date >= start_date, WellProduction.date <= end_date)
+        if well_ids:
+            q = q.filter(WellProduction.well_id.in_(well_ids))
+        rows = q.group_by(WellProduction.date).order_by(WellProduction.date).all()
+        prod_map = {r.date: float(r.total_production or 0) for r in rows}
+        total_series = [prod_map.get(d, 0.0) for d in dates]
+
+        # 2) Tổng công suất (tổng capacity của các giếng được tính)
+        qw = db.session.query(Well)
+        if well_ids:
+            qw = qw.filter(Well.id.in_(well_ids))
+        else:
+            # Nếu không chỉ định, mặc định lấy giếng đang hoạt động (nếu có cột is_active)
+            try:
+                qw = qw.filter(Well.is_active.is_(True))
+            except Exception:
+                pass
+        wells = qw.all()
+        total_capacity = float(sum([float(getattr(w, 'capacity', 0) or 0) for w in wells]))
+        capacity_series = [total_capacity for _ in dates]
+
+        labels = [d.strftime('%d/%m') for d in dates]
+        datasets = [
+            {
+                'label': 'Tổng sản lượng giếng (m³/ngày)',
+                'data': total_series,
+                'borderColor': 'rgb(33, 150, 243)',
+                'backgroundColor': 'rgba(33, 150, 243, 0.15)',
+                'fill': False,
+                'tension': 0.3
+            },
+            {
+                'label': 'Tổng công suất',
+                'data': capacity_series,
+                'borderColor': 'rgb(120, 120, 120)',
+                'backgroundColor': 'rgba(0,0,0,0)',
+                'fill': False,
+                'tension': 0.0,
+                'borderDash': [6, 6],
+                'pointRadius': 0
+            }
+        ]
+
+        total_each_day = total_series[:]  # chính là chuỗi tổng
+        summary = {
+            'total': sum(total_each_day),
+            'average': (sum(total_each_day) / len(total_each_day)) if total_each_day else 0,
+            'max': max(total_each_day) if total_each_day else 0,
+            'min': min([v for v in total_each_day if v > 0]) if any(total_each_day) else 0
+        }
+        table_data = [{'date': d.strftime('%d/%m/%Y'), 'total': total_each_day[i]} for i, d in enumerate(dates)]
+
+        return {'chart_data': {'labels': labels, 'datasets': datasets}, 'summary': summary, 'table_data': table_data}
+
+    # ===== Chế độ mặc định: từng giếng + đường công suất từng giếng =====
     q = db.session.query(
         WellProduction.date, Well.id.label('well_id'), Well.code.label('well_code'),
         Well.capacity.label('capacity'), db.func.sum(WellProduction.production).label('production')
     ).join(Well).filter(WellProduction.date >= start_date, WellProduction.date <= end_date)
-    if well_ids: q = q.filter(Well.id.in_(well_ids))
+    if well_ids:
+        q = q.filter(Well.id.in_(well_ids))
     q = q.group_by(WellProduction.date, Well.id, Well.code, Well.capacity).order_by(WellProduction.date, Well.code)
     rows = q.all()
-    dates_set = sorted({r.date for r in rows})
+
+    dates_set = sorted({r.date for r in rows} or dates)
     labels = [d.strftime('%d/%m') for d in dates_set]
     wells_map, capacities_map = {}, {}
     for r in rows:
         wells_map.setdefault(r.well_code, {})[r.date] = float(r.production or 0)
         capacities_map[r.well_code] = float(r.capacity or 0)
+
     palette = ['rgb(54,162,235)', 'rgb(255,99,132)', 'rgb(75,192,192)', 'rgb(255,206,86)', 'rgb(153,102,255)', 'rgb(255,159,64)']
     datasets, well_colors = [], {}
     for i, (code, date_dict) in enumerate(sorted(wells_map.items())):
         color = palette[i % len(palette)]
         well_colors[code] = color
-        datasets.append({'label': code,'data':[date_dict.get(d,0) for d in dates_set],
-                         'borderColor': color,'backgroundColor': color.replace('rgb','rgba').replace(')',',0.15)'),
-                         'fill': False,'tension': 0.3})
+        datasets.append({
+            'label': code,
+            'data': [date_dict.get(d, 0) for d in dates_set],
+            'borderColor': color,
+            'backgroundColor': color.replace('rgb', 'rgba').replace(')', ',0.15)'),
+            'fill': False,
+            'tension': 0.3
+        })
     for code, cap in sorted(capacities_map.items()):
         color = well_colors.get(code, 'rgb(100,100,100)')
-        datasets.append({'label': f'{code} - Công suất','data':[cap for _ in dates_set],
-                         'borderColor': color,'backgroundColor':'rgba(0,0,0,0)',
-                         'fill': False,'tension': 0.0,'borderDash':[6,6],'pointRadius':0})
+        datasets.append({
+            'label': f'{code} - Công suất',
+            'data': [cap for _ in dates_set],
+            'borderColor': color,
+            'backgroundColor': 'rgba(0,0,0,0)',
+            'fill': False,
+            'tension': 0.0,
+            'borderDash': [6, 6],
+            'pointRadius': 0
+        })
+
     total_each_day = [sum(ds['data'][idx] for ds in datasets if 'Công suất' not in ds['label']) for idx in range(len(labels))]
-    summary = {'total': sum(total_each_day), 'average': (sum(total_each_day)/len(total_each_day)) if total_each_day else 0,
-               'max': max(total_each_day) if total_each_day else 0,
-               'min': min([v for v in total_each_day if v > 0]) if any(total_each_day) else 0}
-    table_data=[]
+    summary = {
+        'total': sum(total_each_day),
+        'average': (sum(total_each_day)/len(total_each_day)) if total_each_day else 0,
+        'max': max(total_each_day) if total_each_day else 0,
+        'min': min([v for v in total_each_day if v > 0]) if any(total_each_day) else 0
+    }
+    table_data = []
     for idx, d in enumerate(dates_set):
-        row={'date': d.strftime('%d/%m/%Y')}; daily_total=0
+        row = {'date': d.strftime('%d/%m/%Y')}
+        daily_total = 0
         for ds in datasets:
-            if 'Công suất' in ds['label']: continue
-            v = ds['data'][idx]; row[ds['label']] = v; daily_total += v
-        row['total'] = daily_total; table_data.append(row)
-    return {'chart_data': {'labels': labels,'datasets': datasets}, 'summary': summary, 'table_data': table_data}
+            if 'Công suất' in ds['label']: 
+                continue
+            v = ds['data'][idx]
+            row[ds['label']] = v
+            daily_total += v
+        row['total'] = daily_total
+        table_data.append(row)
+
+    return {'chart_data': {'labels': labels, 'datasets': datasets}, 'summary': summary, 'table_data': table_data}
 
 def generate_clean_water_details(start_date, end_date):
     dates=[]; cur=start_date
