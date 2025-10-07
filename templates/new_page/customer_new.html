@@ -26,12 +26,12 @@
         </div>
         <div class="col-md-6">
           <label class="form-label">Người liên hệ</label>
-          <input name="contact_person" class="form-control" required value="{{ customer.contact_person or '' }}">
+          <input name="contact_person" class="form-control"  value="{{ customer.contact_person or '' }}">
         </div>
 
         <div class="col-md-4">
           <label class="form-label">Điện thoại</label>
-          <input name="phone" class="form-control" required value="{{ customer.phone or '' }}">
+          <input name="phone" class="form-control"  value="{{ customer.phone or '' }}">
         </div>
         <div class="col-md-4">
           <label class="form-label">Email</label>
@@ -39,7 +39,7 @@
         </div>
         <div class="col-md-4">
           <label class="form-label">Tỷ lệ NT/NS</label>
-          <input name="water_ratio" type="number" step="0.01" required class="form-control" value="{{ '%.2f'|format(customer.water_ratio or 0) }}">
+          <input name="water_ratio" type="number" step="0.01"  class="form-control" value="{{ '%.2f'|format(customer.water_ratio or 0) }}">
         </div>
 
         <div class="col-md-6">
