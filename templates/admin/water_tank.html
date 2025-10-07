@@ -21,7 +21,7 @@
         </thead>
         <tbody>
         {% for t in tanks %}
-          {% set active_value = (t.is_active if (t.is_active is defined) else (t.active if (t.active is defined) else False)) %}
+          <!-- {% set active_value = (t.is_active if (t.is_active is defined) else (t.active if (t.active is defined) else False)) %} -->
           <tr>
             <td>{{ t.id }}</td>
             <!-- <td><strong>{{ t.code or '-' }}</strong></td> -->
