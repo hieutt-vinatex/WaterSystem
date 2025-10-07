@@ -5,30 +5,40 @@
 <form method="post" action="{{ url_for('admin.edit_well', well_id=well.id) }}">
   <div class="card mt-3">
     <div class="card-body">
-      <div class="mb-2">
-        <label class="form-label">Mã giếng</label>
-        <input name="code" class="form-control" required
-               value="{{ (form.get('code') if form is defined else well.code) }}">
-      </div>
-      <div class="mb-2">
-        <label class="form-label">Tên giếng</label>
-        <input name="name" class="form-control" required
-               value="{{ (form.get('name') if form is defined else well.name) }}">
-      </div>
-      <div class="mb-2">
-        <label class="form-label">Công suất (m³/ngày)</label>
-        <input name="capacity" type="number" step="0.01" min="0" class="form-control"
-               value="{{ (form.get('capacity') if form is defined else (well.capacity or 0)) }}">
-      </div>
-      <div class="form-check mb-2">
-        {% set backup_checked = (form.get('is_backup')=='on') if form is defined else (well.is_backup) %}
-        <input class="form-check-input" type="checkbox" id="is_backup" name="is_backup" {{ 'checked' if backup_checked else '' }}>
-        <label class="form-check-label" for="is_backup">Giếng dự phòng</label>
-      </div>
-      <div class="form-check">
-        {% set active_checked = (form.get('is_active')=='on') if form is defined else (well.is_active) %}
-        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {{ 'checked' if active_checked else '' }}>
-        <label class="form-check-label" for="is_active">Kích hoạt</label>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="mb-2">
+            <label class="form-label" for="code">Mã giếng</label>
+            <input id="code" name="code" class="form-control" required
+                   value="{{ (form.get('code') if form is defined else well.code) }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="name">Tên giếng</label>
+            <input id="name" name="name" class="form-control" required
+                   value="{{ (form.get('name') if form is defined else well.name) }}">
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="mb-2">
+            <label class="form-label" for="capacity">Công suất (m³/ngày)</label>
+            <input id="capacity" name="capacity" type="number" step="0.01" min="0" class="form-control"
+                   value="{{ (form.get('capacity') if form is defined else (well.capacity or 0)) }}">
+          </div>
+          <div class="d-flex align-items-center gap-4 mt-2">
+            {% set backup_checked = (form.get('is_backup')=='on') if form is defined else (well.is_backup) %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="is_backup" name="is_backup" {{ 'checked' if backup_checked else '' }}>
+              <label class="form-check-label" for="is_backup">Giếng dự phòng</label>
+            </div>
+
+            {% set active_checked = (form.get('is_active')=='on') if form is defined else (well.is_active) %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {{ 'checked' if active_checked else '' }}>
+              <label class="form-check-label" for="is_active">Kích hoạt</label>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="card-footer text-end">
