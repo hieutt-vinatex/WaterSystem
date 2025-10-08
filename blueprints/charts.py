@@ -320,13 +320,84 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
     return {'chart_data': {'labels': labels, 'datasets': datasets}, 'summary': summary, 'table_data': table_data}
 
 def generate_clean_water_details(start_date, end_date):
-    dates=[]; cur=start_date
-    while cur<=end_date: dates.append(cur); cur+=timedelta(days=1)
-    data=[random.uniform(9000,12000) for _ in dates]
-    return {'chart_data': {'labels':[d.strftime('%d/%m') for d in dates],
-                           'datasets':[{'label':'Nước sạch sản xuất (m³)','data':data,'backgroundColor':'rgba(75, 192, 192, 0.6)','borderColor':'rgb(75, 192, 192)','borderWidth':1}]},
-            'summary': {'total': sum(data), 'average': sum(data)/len(dates), 'max': max(data), 'min': min(data)},
-            'table_data': [{'date': d.strftime('%d/%m/%Y'), 'clean_water_output': data[i]} for i, d in enumerate(dates)]}
+    """Generate clean water production details from database"""
+    # Generate date range
+    dates = []
+    cur = start_date
+    while cur <= end_date:
+        dates.append(cur)
+        cur += timedelta(days=1)
+    
+    # Query clean water plant data from database
+    query = CleanWaterPlant.query.filter(
+        CleanWaterPlant.date >= start_date,
+        CleanWaterPlant.date <= end_date
+    ).order_by(CleanWaterPlant.date).all()
+    
+    # Create data map from query results - sum of clean_water_output + raw_water_jasan
+    data_map = {}
+    for record in query:
+        clean_output = float(record.clean_water_output or 0)
+        raw_jasan = float(record.raw_water_jasan or 0)
+        total_water = clean_output + raw_jasan
+        data_map[record.date] = total_water
+    
+    # Generate data series for all dates in range
+    data = [data_map.get(d, 0.0) for d in dates]
+    
+    # Calculate summary statistics
+    non_zero_data = [v for v in data if v > 0]
+    summary = {
+        'total': sum(data),
+        'average': sum(data) / len(dates) if dates else 0,
+        'max': max(data) if data else 0,
+        'min': min(non_zero_data) if non_zero_data else 0
+    }
+    
+    # Generate chart data
+    chart_data = {
+        'labels': [d.strftime('%d/%m') for d in dates],
+        'datasets': [{
+            'label': 'Tổng nước sạch (Sản xuất + Jasan) (m³)',
+            'data': data,
+            'backgroundColor': 'rgba(75, 192, 192, 0.6)',
+            'borderColor': 'rgb(75, 192, 192)',
+            'borderWidth': 1,
+            'fill': True,
+            'tension': 0.3
+        }]
+    }
+    
+    # Generate table data with breakdown
+    table_data = []
+    for i, d in enumerate(dates):
+        record = None
+        for r in query:
+            if r.date == d:
+                record = r
+                break
+        
+        if record:
+            clean_output = float(record.clean_water_output or 0)
+            raw_jasan = float(record.raw_water_jasan or 0)
+            total = clean_output + raw_jasan
+        else:
+            clean_output = 0
+            raw_jasan = 0
+            total = 0
+            
+        table_data.append({
+            'date': d.strftime('%d/%m/%Y'),
+            'clean_water_output': clean_output,
+            'raw_water_jasan': raw_jasan,
+            'total_water': total
+        })
+    
+    return {
+        'chart_data': chart_data,
+        'summary': summary,
+        'table_data': table_data
+    }
 
 def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=False):
     """Generate wastewater treatment plant details with filtering by plant"""
