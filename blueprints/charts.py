@@ -108,12 +108,32 @@ def chart_details(chart_type):
         return redirect(url_for('dashboard.dashboard'))
     wells_list = []
     plants_list = []
+    customers_list = []
     if chart_type == 'wells':
         wells_list = Well.query.filter_by(is_active=True).order_by(Well.code).all()
     elif chart_type == 'wastewater':
         # Get unique plant numbers from database
         plants_query = db.session.query(WastewaterPlant.plant_number).distinct().order_by(WastewaterPlant.plant_number).all()
         plants_list = [{'number': p.plant_number, 'name': f'NMNT{p.plant_number}'} for p in plants_query]
+    elif chart_type == 'customers':
+        # Get top 4 customers by total consumption in last 30 days
+        from datetime import date, timedelta
+        end_date = date.today()
+        start_date = end_date - timedelta(days=30)
+        
+        top_customers_query = db.session.query(
+            Customer.id,
+            Customer.company_name,
+            db.func.sum(CustomerReading.clean_water_reading).label('total_clean_water')
+        ).join(CustomerReading).filter(
+            Customer.is_active == True,
+            CustomerReading.date >= start_date,
+            CustomerReading.date <= end_date
+        ).group_by(Customer.id, Customer.company_name)\
+         .order_by(db.func.sum(CustomerReading.clean_water_reading).desc())\
+         .limit(4).all()
+        
+        customers_list = [{'id': c.id, 'name': c.company_name, 'total_consumption': float(c.total_clean_water or 0)} for c in top_customers_query]
     
     return render_template('chart_details.html',
                            chart_type=chart_type,
@@ -121,7 +141,8 @@ def chart_details(chart_type):
                            chart_icon=config['icon'],
                            chart_description=config['description'],
                            wells=wells_list,
-                           plants=plants_list)
+                           plants=plants_list,
+                           customers=customers_list)
 
 @bp.route('/api/chart-details/<chart_type>')
 @login_required
@@ -154,7 +175,11 @@ def api_chart_details(chart_type):
             aggregate = request.args.get('aggregate', '0').lower() in ('1', 'true', 'yes') or (plant_ids_param in (None, '', 'all'))
             data = generate_wastewater_details(start_dt, end_dt, plant_ids, aggregate=aggregate)
         elif chart_type == 'customers':
-            data = generate_customer_details(start_dt, end_dt)
+            customer_ids_param = request.args.get('customer_ids')
+            customer_ids = [int(x) for x in customer_ids_param.split(',') if x.strip().isdigit()] if customer_ids_param else None
+            # For customers: aggregate when no selection (top 10), individual when specific customer selected
+            aggregate = customer_ids_param in (None, '', 'all')
+            data = generate_customer_details(start_dt, end_dt, customer_ids, aggregate=aggregate)
         else:
             return jsonify({'error': 'Invalid chart type'}), 400
         return jsonify(data)
@@ -476,13 +501,191 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
             'table_data': table_data
         }
 
-def generate_customer_details(start_date, end_date):
-    dates=[]; cur=start_date
-    while cur<=end_date: dates.append(cur); cur+=timedelta(days=1)
-    clean=[random.uniform(8000,11000) for _ in dates]; waste=[random.uniform(7000,10000) for _ in dates]
-    return {'chart_data': {'labels':[d.strftime('%d/%m') for d in dates],
-                           'datasets':[{'label':'Nước sạch tiêu thụ (m³)','data':clean,'borderColor':'rgb(54, 162, 235)','backgroundColor':'rgba(54, 162, 235, 0.1)','fill':False,'tension':0.4},
-                                       {'label':'Nước thải phát sinh (m³)','data':waste,'borderColor':'rgb(255, 206, 86)','backgroundColor':'rgba(255, 206, 86, 0.1)','fill':False,'tension':0.4}]},
-            'summary': {'total': sum(clean)+sum(waste), 'average': (sum(clean)+sum(waste))/(2*len(dates)),
-                        'max': max(max(clean), max(waste)), 'min': min(min(clean), min(waste))},
-            'table_data': [{'date': d.strftime('%d/%m/%Y'), 'clean_water': clean[i], 'wastewater': waste[i]} for i, d in enumerate(dates)]}
+def generate_customer_details(start_date, end_date, customer_ids=None, aggregate=False):
+    """Generate customer consumption details with filtering by customer"""
+    # Generate date range
+    dates = []
+    cur = start_date
+    while cur <= end_date:
+        dates.append(cur)
+        cur += timedelta(days=1)
+
+    if aggregate:
+        # Aggregate mode: show total consumption across selected customers
+        query = db.session.query(
+            CustomerReading.date,
+            db.func.sum(CustomerReading.clean_water_reading).label('total_clean_water'),
+            db.func.sum(
+                db.case((CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
+                        else_=CustomerReading.wastewater_calculated)
+            ).label('total_wastewater')
+        ).join(Customer).filter(
+            CustomerReading.date >= start_date, 
+            CustomerReading.date <= end_date,
+            Customer.is_active == True
+        )
+        
+        if customer_ids:
+            query = query.filter(Customer.id.in_(customer_ids))
+        
+        rows = query.group_by(CustomerReading.date).order_by(CustomerReading.date).all()
+        
+        # Create data maps
+        clean_map = {r.date: float(r.total_clean_water or 0) for r in rows}
+        wastewater_map = {r.date: float(r.total_wastewater or 0) for r in rows}
+        
+        # Generate data series
+        clean_data = [clean_map.get(d, 0.0) for d in dates]
+        wastewater_data = [wastewater_map.get(d, 0.0) for d in dates]
+        
+        labels = [d.strftime('%d/%m') for d in dates]
+        datasets = [
+            {
+                'label': 'Tổng nước sạch tiêu thụ (m³)',
+                'data': clean_data,
+                'borderColor': 'rgb(54, 162, 235)',
+                'backgroundColor': 'rgba(54, 162, 235, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'Tổng nước thải phát sinh (m³)',
+                'data': wastewater_data,
+                'borderColor': 'rgb(255, 206, 86)',
+                'backgroundColor': 'rgba(255, 206, 86, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            }
+        ]
+        
+        # Summary statistics
+        all_values = clean_data + wastewater_data
+        summary = {
+            'total': sum(all_values),
+            'average': sum(all_values) / (2 * len(dates)) if dates else 0,
+            'max': max(all_values) if all_values else 0,
+            'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+        }
+        
+        # Table data
+        table_data = [
+            {
+                'date': d.strftime('%d/%m/%Y'),
+                'clean_water': clean_data[i],
+                'wastewater': wastewater_data[i]
+            }
+            for i, d in enumerate(dates)
+        ]
+        
+        return {
+            'chart_data': {'labels': labels, 'datasets': datasets},
+            'summary': summary,
+            'table_data': table_data
+        }
+    
+    else:
+        # Individual customers mode: show each customer separately
+        query = db.session.query(
+            CustomerReading.date,
+            Customer.id,
+            Customer.company_name,
+            CustomerReading.clean_water_reading,
+            db.case((CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
+                    else_=CustomerReading.wastewater_calculated).label('wastewater_total')
+        ).join(Customer).filter(
+            CustomerReading.date >= start_date, 
+            CustomerReading.date <= end_date,
+            Customer.is_active == True
+        )
+        
+        if customer_ids:
+            query = query.filter(Customer.id.in_(customer_ids))
+        
+        rows = query.order_by(CustomerReading.date, Customer.company_name).all()
+        
+        # Organize data by customer
+        customers_clean = {}
+        customers_wastewater = {}
+        for r in rows:
+            customer_key = r.company_name
+            if customer_key not in customers_clean:
+                customers_clean[customer_key] = {}
+                customers_wastewater[customer_key] = {}
+            customers_clean[customer_key][r.date] = float(r.clean_water_reading or 0)
+            customers_wastewater[customer_key][r.date] = float(r.wastewater_total or 0)
+        
+        labels = [d.strftime('%d/%m') for d in dates]
+        datasets = []
+        
+        # Color palette for customers
+        colors = ['rgb(54, 162, 235)', 'rgb(255, 99, 132)', 'rgb(75, 192, 192)', 'rgb(255, 206, 86)', 
+                  'rgb(153, 102, 255)', 'rgb(255, 159, 64)', 'rgb(199, 199, 199)', 'rgb(83, 102, 255)',
+                  'rgb(255, 99, 255)', 'rgb(99, 255, 132)']
+        color_idx = 0
+        
+        # Add clean water datasets for each customer
+        for customer_name in sorted(customers_clean.keys()):
+            color = colors[color_idx % len(colors)]
+            datasets.append({
+                'label': f'{customer_name} - Nước sạch (m³)',
+                'data': [customers_clean[customer_name].get(d, 0) for d in dates],
+                'borderColor': color,
+                'backgroundColor': color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+                'fill': False,
+                'tension': 0.4
+            })
+            color_idx += 1
+        
+        # Add wastewater datasets for each customer with dashed lines
+        color_idx = 0
+        for customer_name in sorted(customers_wastewater.keys()):
+            color = colors[color_idx % len(colors)]
+            datasets.append({
+                'label': f'{customer_name} - Nước thải (m³)',
+                'data': [customers_wastewater[customer_name].get(d, 0) for d in dates],
+                'borderColor': color,
+                'backgroundColor': 'rgba(0,0,0,0)',
+                'fill': False,
+                'tension': 0.4,
+                'borderDash': [5, 5]
+            })
+            color_idx += 1
+        
+        # Calculate summary from all datasets
+        all_values = []
+        for ds in datasets:
+            all_values.extend(ds['data'])
+        
+        summary = {
+            'total': sum(all_values),
+            'average': sum(all_values) / len(all_values) if all_values else 0,
+            'max': max(all_values) if all_values else 0,
+            'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+        }
+        
+        # Table data with columns for each customer
+        table_data = []
+        for i, d in enumerate(dates):
+            row = {'date': d.strftime('%d/%m/%Y')}
+            total_clean = 0
+            total_wastewater = 0
+            
+            for customer_name in sorted(customers_clean.keys()):
+                clean_val = customers_clean[customer_name].get(d, 0)
+                wastewater_val = customers_wastewater[customer_name].get(d, 0)
+                # Shorten customer name for table headers
+                short_name = customer_name[:15] + "..." if len(customer_name) > 15 else customer_name
+                row[f'{short_name}_clean'] = clean_val
+                row[f'{short_name}_waste'] = wastewater_val
+                total_clean += clean_val
+                total_wastewater += wastewater_val
+            
+            row['total_clean'] = total_clean
+            row['total_wastewater'] = total_wastewater
+            table_data.append(row)
+        
+        return {
+            'chart_data': {'labels': labels, 'datasets': datasets},
+            'summary': summary,
+            'table_data': table_data
+        }

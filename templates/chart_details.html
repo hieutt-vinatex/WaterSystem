@@ -101,6 +101,27 @@
                     </div>
                 </div>
                 {% endif %}
+                
+                {% if chart_type == 'customers' %}
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Khách hàng</label>
+                            <select class="form-select" id="customer-select">
+                                <option value="" selected>Top 4 khách hàng tiêu thụ nhiều nhất</option>
+                                {% for c in customers %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <small class="text-muted">
+                                Chọn "Top 4" để xem tổng hợp, hoặc chọn khách hàng cụ thể để xem chi tiết. Đường liền: nước sạch, Đường đứt: nước thải.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -255,6 +276,16 @@ function initEvents() {
       });
     });
   }
+  
+  if (chartType === 'customers') {
+    const select = document.getElementById('customer-select');
+    if (select) {
+      select.addEventListener('change', () => {
+        // Tự động cập nhật khi thay đổi selection
+        loadChartData();
+      });
+    }
+  }
 }
 
 /* -------- Data Helpers -------- */
@@ -274,6 +305,21 @@ function getSelectedPlantIds() {
                         .map(cb => cb.value);
   if (!selected.length) return null;          // không chọn = tất cả
   return selected;
+}
+
+function getSelectedCustomerIds() {
+  if (chartType !== 'customers') return null;
+  const select = document.getElementById('customer-select');
+  if (!select) return null;
+  
+  const selectedValue = select.value;
+  if (!selectedValue) {
+    // Empty value means "Top 10" is selected (aggregate mode)
+    return null;
+  }
+  
+  // Return array with single customer ID for individual mode
+  return [selectedValue];
 }
 
 /* -------- Load / Update -------- */
@@ -312,6 +358,12 @@ async function loadChartData(days = 30, startDate = null, endDate = null) {
     const plants = getSelectedPlantIds();
     if (plants && plants.length) {
       params.push(`plant_ids=${plants.join(',')}`);
+    }
+    
+    // Handle customer filters
+    const customers = getSelectedCustomerIds();
+    if (customers && customers.length) {
+      params.push(`customer_ids=${customers.join(',')}`);
     }
     
     let url = `/api/chart-details/${chartType}`;
@@ -419,8 +471,23 @@ function headerMap(h) {
     NMNT1_input: 'NMNT1 - Đầu vào (m³)',
     NMNT1_output: 'NMNT1 - Đầu ra (m³)',
     NMNT2_input: 'NMNT2 - Đầu vào (m³)',
-    NMNT2_output: 'NMNT2 - Đầu ra (m³)'
+    NMNT2_output: 'NMNT2 - Đầu ra (m³)',
+    clean_water: 'Nước sạch (m³)',
+    wastewater: 'Nước thải (m³)',
+    total_clean: 'Tổng nước sạch (m³)',
+    total_wastewater: 'Tổng nước thải (m³)'
   };
+  
+  // Handle dynamic customer columns
+  if (h.includes('_clean')) {
+    const customerName = h.replace('_clean', '');
+    return `${customerName} - NS (m³)`;
+  }
+  if (h.includes('_waste')) {
+    const customerName = h.replace('_waste', '');
+    return `${customerName} - NT (m³)`;
+  }
+  
   return map[h] || h;
 }
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
