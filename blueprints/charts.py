@@ -107,14 +107,21 @@ def chart_details(chart_type):
         flash('Loại biểu đồ không hợp lệ', 'error')
         return redirect(url_for('dashboard.dashboard'))
     wells_list = []
+    plants_list = []
     if chart_type == 'wells':
         wells_list = Well.query.filter_by(is_active=True).order_by(Well.code).all()
+    elif chart_type == 'wastewater':
+        # Get unique plant numbers from database
+        plants_query = db.session.query(WastewaterPlant.plant_number).distinct().order_by(WastewaterPlant.plant_number).all()
+        plants_list = [{'number': p.plant_number, 'name': f'NMNT{p.plant_number}'} for p in plants_query]
+    
     return render_template('chart_details.html',
                            chart_type=chart_type,
                            chart_type_name=config['name'],
                            chart_icon=config['icon'],
                            chart_description=config['description'],
-                           wells=wells_list)
+                           wells=wells_list,
+                           plants=plants_list)
 
 @bp.route('/api/chart-details/<chart_type>')
 @login_required
@@ -142,7 +149,10 @@ def api_chart_details(chart_type):
         elif chart_type == 'clean-water':
             data = generate_clean_water_details(start_dt, end_dt)
         elif chart_type == 'wastewater':
-            data = generate_wastewater_details(start_dt, end_dt)
+            plant_ids_param = request.args.get('plant_ids')
+            plant_ids = [int(x) for x in plant_ids_param.split(',') if x.strip().isdigit()] if plant_ids_param else None
+            aggregate = request.args.get('aggregate', '0').lower() in ('1', 'true', 'yes') or (plant_ids_param in (None, '', 'all'))
+            data = generate_wastewater_details(start_dt, end_dt, plant_ids, aggregate=aggregate)
         elif chart_type == 'customers':
             data = generate_customer_details(start_dt, end_dt)
         else:
@@ -293,17 +303,178 @@ def generate_clean_water_details(start_date, end_date):
             'summary': {'total': sum(data), 'average': sum(data)/len(dates), 'max': max(data), 'min': min(data)},
             'table_data': [{'date': d.strftime('%d/%m/%Y'), 'clean_water_output': data[i]} for i, d in enumerate(dates)]}
 
-def generate_wastewater_details(start_date, end_date):
-    dates=[]; cur=start_date
-    while cur<=end_date: dates.append(cur); cur+=timedelta(days=1)
-    input_data=[random.uniform(15000,18000) for _ in dates]
-    output_data=[random.uniform(14000,17000) for _ in dates]
-    return {'chart_data': {'labels': [d.strftime('%d/%m') for d in dates],
-                           'datasets': [{'label':'Nước thải đầu vào (m³)','data':input_data,'borderColor':'rgb(255, 99, 132)','backgroundColor':'rgba(255, 99, 132, 0.1)','fill':False,'tension':0.4},
-                                        {'label':'Nước thải đầu ra (m³)','data':output_data,'borderColor':'rgb(54, 162, 235)','backgroundColor':'rgba(54, 162, 235, 0.1)','fill':False,'tension':0.4}]},
-            'summary': {'total': sum(input_data)+sum(output_data), 'average': (sum(input_data)+sum(output_data))/(2*len(dates)),
-                        'max': max(max(input_data), max(output_data)), 'min': min(min(input_data), min(output_data))},
-            'table_data': [{'date': d.strftime('%d/%m/%Y'), 'input_flow': input_data[i], 'output_flow': output_data[i]} for i, d in enumerate(dates)]}
+def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=False):
+    """Generate wastewater treatment plant details with filtering by plant"""
+    # Generate date range
+    dates = []
+    cur = start_date
+    while cur <= end_date:
+        dates.append(cur)
+        cur += timedelta(days=1)
+
+    if aggregate:
+        # Aggregate mode: show total input/output across selected plants
+        query = db.session.query(
+            WastewaterPlant.date,
+            db.func.sum(WastewaterPlant.input_flow_tqt).label('total_input'),
+            db.func.sum(WastewaterPlant.output_flow_tqt).label('total_output')
+        ).filter(WastewaterPlant.date >= start_date, WastewaterPlant.date <= end_date)
+        
+        if plant_ids:
+            query = query.filter(WastewaterPlant.plant_number.in_(plant_ids))
+        
+        rows = query.group_by(WastewaterPlant.date).order_by(WastewaterPlant.date).all()
+        
+        # Create data maps
+        input_map = {r.date: float(r.total_input or 0) for r in rows}
+        output_map = {r.date: float(r.total_output or 0) for r in rows}
+        
+        # Generate data series
+        input_data = [input_map.get(d, 0.0) for d in dates]
+        output_data = [output_map.get(d, 0.0) for d in dates]
+        
+        labels = [d.strftime('%d/%m') for d in dates]
+        datasets = [
+            {
+                'label': 'Tổng nước thải đầu vào (m³)',
+                'data': input_data,
+                'borderColor': 'rgb(255, 99, 132)',
+                'backgroundColor': 'rgba(255, 99, 132, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            },
+            {
+                'label': 'Tổng nước thải đầu ra (m³)',
+                'data': output_data,
+                'borderColor': 'rgb(54, 162, 235)',
+                'backgroundColor': 'rgba(54, 162, 235, 0.1)',
+                'fill': False,
+                'tension': 0.4
+            }
+        ]
+        
+        # Summary statistics
+        all_values = input_data + output_data
+        summary = {
+            'total': sum(all_values),
+            'average': sum(all_values) / (2 * len(dates)) if dates else 0,
+            'max': max(all_values) if all_values else 0,
+            'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+        }
+        
+        # Table data
+        table_data = [
+            {
+                'date': d.strftime('%d/%m/%Y'),
+                'input_flow': input_data[i],
+                'output_flow': output_data[i]
+            }
+            for i, d in enumerate(dates)
+        ]
+        
+        return {
+            'chart_data': {'labels': labels, 'datasets': datasets},
+            'summary': summary,
+            'table_data': table_data
+        }
+    
+    else:
+        # Individual plants mode: show each plant separately
+        query = db.session.query(
+            WastewaterPlant.date,
+            WastewaterPlant.plant_number,
+            WastewaterPlant.input_flow_tqt,
+            WastewaterPlant.output_flow_tqt
+        ).filter(WastewaterPlant.date >= start_date, WastewaterPlant.date <= end_date)
+        
+        if plant_ids:
+            query = query.filter(WastewaterPlant.plant_number.in_(plant_ids))
+        
+        rows = query.order_by(WastewaterPlant.date, WastewaterPlant.plant_number).all()
+        
+        # Organize data by plant
+        plants_input = {}
+        plants_output = {}
+        for r in rows:
+            plant_key = f"NMNT{r.plant_number}"
+            if plant_key not in plants_input:
+                plants_input[plant_key] = {}
+                plants_output[plant_key] = {}
+            plants_input[plant_key][r.date] = float(r.input_flow_tqt or 0)
+            plants_output[plant_key][r.date] = float(r.output_flow_tqt or 0)
+        
+        labels = [d.strftime('%d/%m') for d in dates]
+        datasets = []
+        
+        # Color palette for plants
+        colors = ['rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(75, 192, 192)', 'rgb(255, 206, 86)']
+        color_idx = 0
+        
+        # Add input datasets
+        for plant_name in sorted(plants_input.keys()):
+            color = colors[color_idx % len(colors)]
+            datasets.append({
+                'label': f'{plant_name} - Đầu vào (m³)',
+                'data': [plants_input[plant_name].get(d, 0) for d in dates],
+                'borderColor': color,
+                'backgroundColor': color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+                'fill': False,
+                'tension': 0.4
+            })
+            color_idx += 1
+        
+        # Add output datasets
+        color_idx = 0
+        for plant_name in sorted(plants_output.keys()):
+            color = colors[color_idx % len(colors)]
+            # Make output lines dashed to distinguish from input
+            datasets.append({
+                'label': f'{plant_name} - Đầu ra (m³)',
+                'data': [plants_output[plant_name].get(d, 0) for d in dates],
+                'borderColor': color,
+                'backgroundColor': 'rgba(0,0,0,0)',
+                'fill': False,
+                'tension': 0.4,
+                'borderDash': [5, 5]
+            })
+            color_idx += 1
+        
+        # Calculate summary from all non-dashed datasets (input + output)
+        all_values = []
+        for ds in datasets:
+            all_values.extend(ds['data'])
+        
+        summary = {
+            'total': sum(all_values),
+            'average': sum(all_values) / len(all_values) if all_values else 0,
+            'max': max(all_values) if all_values else 0,
+            'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+        }
+        
+        # Table data with columns for each plant
+        table_data = []
+        for i, d in enumerate(dates):
+            row = {'date': d.strftime('%d/%m/%Y')}
+            total_input = 0
+            total_output = 0
+            
+            for plant_name in sorted(plants_input.keys()):
+                input_val = plants_input[plant_name].get(d, 0)
+                output_val = plants_output[plant_name].get(d, 0)
+                row[f'{plant_name}_input'] = input_val
+                row[f'{plant_name}_output'] = output_val
+                total_input += input_val
+                total_output += output_val
+            
+            row['total_input'] = total_input
+            row['total_output'] = total_output
+            table_data.append(row)
+        
+        return {
+            'chart_data': {'labels': labels, 'datasets': datasets},
+            'summary': summary,
+            'table_data': table_data
+        }
 
 def generate_customer_details(start_date, end_date):
     dates=[]; cur=start_date

@@ -81,6 +81,26 @@
                     </div>
                 </div>
                 {% endif %}
+                
+                {% if chart_type == 'wastewater' %}
+                <div class="card-body">
+                    <div class="row g-1" id="plant-checkbox-container">
+                    {% for p in plants %}
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <div class="form-check">
+                            <input class="form-check-input plant-check" type="checkbox" value="{{ p.number }}" id="plant-{{ p.number }}">
+                            <label class="form-check-label small" for="plant-{{ p.number }}">{{ p.name }}</label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    </div>
+                    <div class="mt-3 d-flex align-items-center">
+                        <small class="text-muted ms-3">
+                            Không chọn = lấy tất cả nhà máy. Đường liền: nước thải đầu vào, Đường đứt: nước thải đầu ra.
+                        </small>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -225,6 +245,16 @@ function initEvents() {
     // const applyBtn = document.getElementById('apply-well-filter');
     // if (applyBtn) applyBtn.addEventListener('click', () => updateDetailChart());
   }
+  
+  if (chartType === 'wastewater') {
+    const items = document.querySelectorAll('.plant-check');
+    items.forEach(cb => {
+      cb.addEventListener('change', () => {
+        // Tự động cập nhật khi thay đổi checkbox
+        loadChartData();
+      });
+    });
+  }
 }
 
 /* -------- Data Helpers -------- */
@@ -235,6 +265,14 @@ function getSelectedWellIds() {
                         .map(cb => cb.value);
   if (!selected.length) return null;          // không chọn = tất cả
   if (allCb && allCb.checked) return null;    // chọn tất cả
+  return selected;
+}
+
+function getSelectedPlantIds() {
+  if (chartType !== 'wastewater') return null;
+  const selected = Array.from(document.querySelectorAll('.plant-check:checked'))
+                        .map(cb => cb.value);
+  if (!selected.length) return null;          // không chọn = tất cả
   return selected;
 }
 
@@ -263,10 +301,19 @@ async function loadChartData(days = 30, startDate = null, endDate = null) {
     } else if (days) {
       params.push(`days=${days}`);
     }
+    
+    // Handle well filters
     const wells = getSelectedWellIds();
     if (wells && wells.length) {
       params.push(`well_ids=${wells.join(',')}`);
     }
+    
+    // Handle plant filters
+    const plants = getSelectedPlantIds();
+    if (plants && plants.length) {
+      params.push(`plant_ids=${plants.join(',')}`);
+    }
+    
     let url = `/api/chart-details/${chartType}`;
     if (params.length) url += '?' + params.join('&');
 
@@ -362,7 +409,18 @@ function updateTable(rows) {
 }
 
 function headerMap(h) {
-  const map = { date: 'Ngày', total: 'Tổng cộng' };
+  const map = { 
+    date: 'Ngày', 
+    total: 'Tổng cộng',
+    input_flow: 'Nước thải đầu vào (m³)',
+    output_flow: 'Nước thải đầu ra (m³)',
+    total_input: 'Tổng đầu vào (m³)',
+    total_output: 'Tổng đầu ra (m³)',
+    NMNT1_input: 'NMNT1 - Đầu vào (m³)',
+    NMNT1_output: 'NMNT1 - Đầu ra (m³)',
+    NMNT2_input: 'NMNT2 - Đầu vào (m³)',
+    NMNT2_output: 'NMNT2 - Đầu ra (m³)'
+  };
   return map[h] || h;
 }
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
