@@ -336,7 +336,21 @@ function updateReportStatus(message, type) {
 
 // Set default dates on page load
 document.addEventListener('DOMContentLoaded', function() {
-    setDateRange('month'); // Default to last 30 days
+    setDateRange('month'); // Default to last 30 days for general forms
+    // Set default for monthly NMNS report: from Jan 1 of current year to today
+    try {
+        const today = new Date();
+        const year = today.getFullYear();
+        const jan1 = new Date(year, 0, 1);
+        const start = jan1.toISOString().split('T')[0];
+        const end = today.toISOString().split('T')[0];
+        const startInput = document.getElementById('monthly-clean-start-date');
+        const endInput = document.getElementById('monthly-clean-end-date');
+        if (startInput && endInput) {
+            startInput.value = start;
+            endInput.value = end;
+        }
+    } catch (e) { /* ignore */ }
 });
 </script>
 {% endblock %}

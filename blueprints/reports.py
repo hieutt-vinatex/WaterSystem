@@ -1,9 +1,11 @@
 import io, csv, logging
 from datetime import datetime, date, timedelta
+import calendar
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, make_response, current_app
 from flask_login import login_required, current_user
 from app import db
 from models import CleanWaterPlant, WaterTankLevel, WaterTank, CustomerReading, Customer
+from sqlalchemy import func, extract
 from utils import generate_daily_report, generate_monthly_report, check_permissions
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -254,6 +256,183 @@ def _build_clean_water_plant_report_wb(start_dt: date, end_dt: date) -> Workbook
 
     return wb
 
+
+def _build_nmns_monthly_power_chem_wb(start_dt: date, end_dt: date) -> Workbook:
+    """BÁO CÁO SỐ LIỆU ĐỊNH MỨC SỬ DỤNG ĐIỆN VÀ HOÁ CHẤT (NMNS)
+
+    - Cột tháng: từ T01/<year> đến T<current>/<year> theo end_dt
+    - Hàng nội dung (10 dòng):
+        1. Số điện (kWh) = sum(electricity)
+        2. Số điện/ 1m3 nước sạch ( kw/m3) = điện / Tổng nước sạch
+        3. PAC (kg) = sum(pac_usage)
+        4. PAC/m3 nước sạch (kg/m3) = PAC / Tổng nước sạch
+        5. Xút (kg) = sum(naoh_usage)
+        6. Xút/m3 nước sạch (kg/m3) = Xút / Tổng nước sạch
+        7. Polymer (kg) = sum(polymer_usage)
+        8. Polymer/m3 nước sạch (g/m3) = (Polymer / Tổng nước sạch) * 1000
+        9. Tổng nước sạch (m3) = sum(clean_water_output)
+       10. Lượng nước sạch TB ngày = Tổng nước sạch / số ngày trong tháng
+
+    Ghi chú: tính trong phạm vi từ 01/01/<year> tới end_dt.
+    """
+    # Phạm vi từ đầu năm đến ngày kết thúc
+    year = end_dt.year
+    start_year_dt = date(year, 1, 1)
+    last_month = end_dt.month
+
+    # Lấy tổng theo tháng từ DB
+    q = db.session.query(
+        extract('year', CleanWaterPlant.date).label('y'),
+        extract('month', CleanWaterPlant.date).label('m'),
+        func.sum(func.coalesce(CleanWaterPlant.electricity, 0)).label('electricity'),
+        func.sum(func.coalesce(CleanWaterPlant.pac_usage, 0)).label('pac'),
+        func.sum(func.coalesce(CleanWaterPlant.naoh_usage, 0)).label('naoh'),
+        func.sum(func.coalesce(CleanWaterPlant.polymer_usage, 0)).label('polymer'),
+        func.sum(func.coalesce(CleanWaterPlant.clean_water_output, 0)).label('water')
+    ).filter(
+        CleanWaterPlant.date >= start_year_dt,
+        CleanWaterPlant.date <= end_dt
+    ).group_by('y', 'm').order_by('y', 'm')
+
+    monthly = {(int(r.y), int(r.m)): {
+        'electricity': float(r.electricity or 0),
+        'pac': float(r.pac or 0),
+        'naoh': float(r.naoh or 0),
+        'polymer': float(r.polymer or 0),
+        'water': float(r.water or 0),
+    } for r in q.all()}
+
+    # Workbook setup
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'BÁO CÁO'
+
+    # Styles
+    header_fill = PatternFill(start_color='8E1340', end_color='8E1340', fill_type='solid')  # tím đậm gần với ảnh
+    header_font = Font(color='FFFFFF', bold=True, size=12)
+    table_header_fill = PatternFill(start_color='C24C86', end_color='C24C86', fill_type='solid')
+    table_header_font = Font(color='FFFFFF', bold=True)
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left = Alignment(horizontal='left', vertical='center')
+    right = Alignment(horizontal='right', vertical='center')
+
+    # Title rows
+    total_cols = 2 + last_month  # B = Nội dung, cộng C.. for months
+    last_col_letter = chr(64 + total_cols)
+    ws.merge_cells(f'A1:{last_col_letter}1')
+    ws['A1'] = 'BÁO CÁO SỐ LIỆU ĐỊNH MỨC SỬ DỤNG ĐIỆN VÀ HOÁ CHẤT'
+    ws['A1'].font = Font(size=16, bold=True)
+    ws['A1'].alignment = center
+
+    ws.merge_cells(f'A2:{last_col_letter}2')
+    ws['A2'] = f'NHÀ MÁY NƯỚC SẠCH THÁNG {str(end_dt.month).zfill(2)}/{year}'
+    ws['A2'].font = Font(size=12, bold=True)
+    ws['A2'].alignment = center
+
+    # Header row (TT | Nội dung | T01/YYYY ... TMM/YYYY)
+    headers = ['TT', 'Nội dung'] + [f'T{str(m).zfill(2)}/{year}' for m in range(1, last_month + 1)]
+    ws.append(headers)
+    header_row = 3
+    for idx in range(1, total_cols + 1):
+        c = ws.cell(row=header_row, column=idx)
+        c.fill = table_header_fill
+        c.font = table_header_font
+        c.alignment = center
+        c.border = border
+
+    # Column widths
+    ws.column_dimensions['A'].width = 6
+    ws.column_dimensions['B'].width = 38
+    for col_idx in range(3, total_cols + 1):
+        ws.column_dimensions[chr(64 + col_idx)].width = 14
+
+    # Rows definitions
+    rows_def = [
+        ('Số điện (kWh)', 'electricity', '#,##0'),
+        ('Số điện/ 1m3 nước sạch ( kw/m3)', 'electricity_per_m3', '0.000'),
+        ('PAC (kg)', 'pac', '#,##0'),
+        ('PAC/m3 nước sạch (kg/m3)', 'pac_per_m3', '0.000'),
+        ('Xút (kg)', 'naoh', '#,##0'),
+        ('Xút/m3 nước sạch (kg/m3)', 'naoh_per_m3', '0.000'),
+        ('Polymer (kg)', 'polymer', '#,##0'),
+        ('Polymer/m3 nước sạch (g/m3)', 'polymer_per_m3_g', '0.000'),
+        ('Tổng nước sạch (m3)', 'water', '#,##0'),
+        ('Lượng nước sạch TB ngày', 'avg_water_per_day', '#,##0'),
+    ]
+
+    current_row = header_row + 1
+    for i, (label, key, numfmt) in enumerate(rows_def, start=1):
+        ws.cell(row=current_row, column=1, value=i).alignment = center
+        ws.cell(row=current_row, column=2, value=label).alignment = left
+        # fill monthly values
+        for m in range(1, last_month + 1):
+            data = monthly.get((year, m), {'electricity': 0, 'pac': 0, 'naoh': 0, 'polymer': 0, 'water': 0})
+            water = data['water']
+            value = 0
+            if key == 'electricity':
+                value = data['electricity']
+            elif key == 'pac':
+                value = data['pac']
+            elif key == 'naoh':
+                value = data['naoh']
+            elif key == 'polymer':
+                value = data['polymer']
+            elif key == 'water':
+                value = water
+            elif key == 'electricity_per_m3':
+                value = (data['electricity'] / water) if water else 0
+            elif key == 'pac_per_m3':
+                value = (data['pac'] / water) if water else 0
+            elif key == 'naoh_per_m3':
+                value = (data['naoh'] / water) if water else 0
+            elif key == 'polymer_per_m3_g':
+                value = ((data['polymer'] / water) * 1000) if water else 0
+            elif key == 'avg_water_per_day':
+                days = calendar.monthrange(year, m)[1]
+                value = (water / days) if days else 0
+
+            col_idx = 2 + m  # month columns start at C (3)
+            cell = ws.cell(row=current_row, column=col_idx, value=value)
+            cell.alignment = right
+            cell.number_format = numfmt
+
+        # borders for whole row
+        for col_idx in range(1, total_cols + 1):
+            ws.cell(row=current_row, column=col_idx).border = border
+
+        current_row += 1
+
+    # Apply borders for header too (already applied) and set freeze panes
+    ws.freeze_panes = 'C4'
+
+    # Footer signatures (simple approximation)
+    footer_start = current_row + 2
+    # Người lập
+    ws.merge_cells(start_row=footer_start, start_column=2, end_row=footer_start, end_column=3)
+    ws.cell(row=footer_start, column=2, value='NGƯỜI LẬP').alignment = center
+    ws.cell(row=footer_start, column=2).font = Font(bold=True)
+
+    # Phòng quản lý hạ tầng / Trưởng phòng
+    mid_col_start = max(5, total_cols // 2)
+    mid_col_end = min(total_cols, mid_col_start + 2)
+    ws.merge_cells(start_row=footer_start, start_column=mid_col_start, end_row=footer_start, end_column=mid_col_end)
+    ws.cell(row=footer_start, column=mid_col_start, value='PHÒNG QUẢN LÝ HẠ TẦNG').alignment = center
+    ws.cell(row=footer_start, column=mid_col_start).font = Font(bold=True)
+
+    ws.merge_cells(start_row=footer_start + 1, start_column=mid_col_start, end_row=footer_start + 1, end_column=mid_col_end)
+    ws.cell(row=footer_start + 1, column=mid_col_start, value='TRƯỞNG PHÒNG').alignment = center
+
+    # Names a few rows below
+    name_row = footer_start + 6
+    ws.merge_cells(start_row=name_row, start_column=2, end_row=name_row, end_column=3)
+    ws.cell(row=name_row, column=2, value='CAO MINH HIẾU').alignment = center
+
+    ws.merge_cells(start_row=name_row, start_column=mid_col_start, end_row=name_row, end_column=mid_col_end)
+    ws.cell(row=name_row, column=mid_col_start, value='TÔ NGỌC CƯỜNG').alignment = center
+
+    return wb
+
 @bp.route('/generate-report/<report_type>')
 @login_required
 def generate_report(report_type):
@@ -274,6 +453,9 @@ def generate_report(report_type):
             # Excel: nhánh theo report_type
             if report_type == 'clean_water_plant':
                 wb = _build_clean_water_plant_report_wb(start_dt, end_dt)
+            elif report_type == 'monthly_clean_water':
+                # Luôn lấy dữ liệu từ đầu năm tới tháng hiện tại
+                wb = _build_nmns_monthly_power_chem_wb(date(end_dt.year, 1, 1), end_dt)
             else:
                 wb = _build_sample_report_wb(report_type, start_dt, end_dt)
             filename = f"{report_type}_{date.today().strftime('%Y%m%d')}"
