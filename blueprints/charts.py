@@ -86,7 +86,14 @@ def dashboard_data():
          .group_by(CustomerReading.date).all()
         return jsonify({
             'well_production': [{'date': str(d.date), 'production': float(d.total_production or 0)} for d in well_data],
-            'clean_water': [{'date': str(d.date), 'output': float(d.clean_water_output or 0)} for d in clean_water_data],
+            # Total = clean_water_output + raw_water_jasan for consistency with details page
+            'clean_water': [
+                {
+                    'date': str(d.date),
+                    'output': float((d.clean_water_output or 0)) + float((d.raw_water_jasan or 0))
+                }
+                for d in clean_water_data
+            ],
             'wastewater': [{'date': str(d.date), 'input': float(d.total_input or 0), 'output': float(d.total_output or 0)} for d in wastewater_data],
             'customer_consumption': [{'date': str(d.date), 'clean_water': float(d.total_clean_water or 0), 'wastewater': float(d.total_wastewater or 0)} for d in customer_data]
         })

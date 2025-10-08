@@ -133,7 +133,7 @@ function createCleanWaterChart(data) {
         data: {
             labels: labels,
             datasets: [{
-                label: 'Nước sạch sản xuất (m³)',
+                label: 'Tổng nước sạch (Sản xuất + Jasan) (m³)',
                 data: outputs,
                 backgroundColor: 'rgba(75, 192, 192, 0.6)',
                 borderColor: 'rgb(75, 192, 192)',

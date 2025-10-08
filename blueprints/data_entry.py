@@ -196,13 +196,8 @@ def submit_clean_water_plant():
         return redirect(url_for('dashboard.dashboard'))
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        overwrite = request.form.get('overwrite') == '1'
 
         existing = CleanWaterPlant.query.filter_by(date=entry_date).first()
-        if existing and not overwrite:
-            # flash('Đã có dữ liệu cho ngày này. Chọn "Ghi đè" nếu muốn thay thế.', 'warning')
-            flash('Đã cập nhật thành công', 'success')
-            return redirect(url_for('data_entry.data_entry') + '#clean-water')
 
         field_types = {
             'electricity': 'float',
@@ -214,14 +209,16 @@ def submit_clean_water_plant():
         }
 
         if existing:
-            # Cập nhật một phần: ô nào để trống sẽ không thay đổi
+            # Luôn cập nhật các trường đã nhập (không cần cờ overwrite)
             partial_update_fields(existing, request.form, field_types)
+            msg = 'Cập nhật dữ liệu nhà máy nước sạch thành công'
         else:
             payload = build_insert_payload(request.form, field_types)
             db.session.add(CleanWaterPlant(date=entry_date, **payload, created_by=current_user.id))
+            msg = 'Thêm mới dữ liệu nhà máy nước sạch thành công'
 
         db.session.commit()
-        flash('Clean water plant data saved successfully', 'success')
+        flash(msg, 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
