@@ -11,8 +11,40 @@
 </div>
 
 <div class="row">
-    <!-- Daily Clean Water Report -->
+    <!-- Clean Water Plant Consolidated Report -->
     <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-tint me-2"></i>Báo cáo nước sạch hằng ngày</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Báo cáo sản lượng giếng khoan và nhà máy nước sạch theo ngày</p>
+                
+                <form id="nmns-report-form">
+                    <div class="mb-3">
+                        <label class="form-label">Từ ngày</label>
+                        <input type="date" class="form-control" id="nmns-start-date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Đến ngày</label>
+                        <input type="date" class="form-control" id="nmns-end-date" required>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-success" onclick="generateReport('clean_water_plant', 'excel')">
+                            <i class="fas fa-file-excel me-2"></i>Xuất Excel
+                        </button>
+                        <!-- <button type="button" class="btn btn-danger" onclick="generateReport('daily_clean_water', 'pdf')">
+                            <i class="fas fa-file-pdf me-2"></i>Xuất PDF
+                        </button> -->
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Daily Clean Water Report -->
+    <!-- <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
                 <h5><i class="fas fa-calendar-day me-2"></i>Báo cáo nước sạch hàng ngày</h5>
@@ -34,14 +66,11 @@
                         <button type="button" class="btn btn-success" onclick="generateReport('daily_clean_water', 'excel')">
                             <i class="fas fa-file-excel me-2"></i>Xuất Excel
                         </button>
-                        <button type="button" class="btn btn-danger" onclick="generateReport('daily_clean_water', 'pdf')">
-                            <i class="fas fa-file-pdf me-2"></i>Xuất PDF
-                        </button>
                     </div>
                 </form>
             </div>
         </div>
-    </div>
+    </div> -->
     
     <!-- Monthly Clean Water Report -->
     <div class="col-md-6 mb-4">
@@ -66,9 +95,9 @@
                         <button type="button" class="btn btn-success" onclick="generateReport('monthly_clean_water', 'excel')">
                             <i class="fas fa-file-excel me-2"></i>Xuất Excel
                         </button>
-                        <button type="button" class="btn btn-danger" onclick="generateReport('monthly_clean_water', 'pdf')">
+                        <!-- <button type="button" class="btn btn-danger" onclick="generateReport('monthly_clean_water', 'pdf')">
                             <i class="fas fa-file-pdf me-2"></i>Xuất PDF
-                        </button>
+                        </button> -->
                     </div>
                 </form>
             </div>
@@ -98,9 +127,9 @@
                         <button type="button" class="btn btn-success" onclick="generateReport('monthly_wastewater_1', 'excel')">
                             <i class="fas fa-file-excel me-2"></i>Xuất Excel
                         </button>
-                        <button type="button" class="btn btn-danger" onclick="generateReport('monthly_wastewater_1', 'pdf')">
+                        <!-- <button type="button" class="btn btn-danger" onclick="generateReport('monthly_wastewater_1', 'pdf')">
                             <i class="fas fa-file-pdf me-2"></i>Xuất PDF
-                        </button>
+                        </button> -->
                     </div>
                 </form>
             </div>
@@ -130,9 +159,9 @@
                         <button type="button" class="btn btn-success" onclick="generateReport('monthly_wastewater_2', 'excel')">
                             <i class="fas fa-file-excel me-2"></i>Xuất Excel
                         </button>
-                        <button type="button" class="btn btn-danger" onclick="generateReport('monthly_wastewater_2', 'pdf')">
+                        <!-- <button type="button" class="btn btn-danger" onclick="generateReport('monthly_wastewater_2', 'pdf')">
                             <i class="fas fa-file-pdf me-2"></i>Xuất PDF
-                        </button>
+                        </button> -->
                     </div>
                 </form>
             </div>
@@ -219,6 +248,7 @@ function setDateRange(period) {
     
     // Set dates for all forms
     const dateInputs = [
+        'nmns-start-date', 'nmns-end-date',
         'daily-start-date', 'daily-end-date',
         'monthly-clean-start-date', 'monthly-clean-end-date',
         'monthly-ww1-start-date', 'monthly-ww1-end-date',
@@ -244,6 +274,10 @@ function generateReport(reportType, format) {
     
     // Get date range based on report type
     switch(reportType) {
+        case 'clean_water_plant':
+            startDate = document.getElementById('nmns-start-date').value;
+            endDate = document.getElementById('nmns-end-date').value;
+            break;
         case 'daily_clean_water':
             startDate = document.getElementById('daily-start-date').value;
             endDate = document.getElementById('daily-end-date').value;

@@ -58,6 +58,202 @@ def _build_sample_report_wb(report_type: str, start_dt: date, end_dt: date) -> W
         cur += timedelta(days=1)
     return wb
 
+def _date_range(start_dt: date, end_dt: date):
+    cur = start_dt
+    while cur <= end_dt:
+        yield cur
+        cur += timedelta(days=1)
+
+def _build_clean_water_plant_report_wb(start_dt: date, end_dt: date) -> Workbook:
+    """Builds an Excel workbook for 'BÁO CÁO NHÀ MÁY NƯỚC SẠCH (m3)'.
+
+    Mapping requirements:
+    - NƯỚC CẤP              -> CleanWaterPlant.clean_water_output (per day)
+    - NƯỚC THÔ JASAN        -> CleanWaterPlant.raw_water_jasan (per day)
+    - LƯỢNG NƯỚC TẠI CÁC BỂ CHỨA (clean water tanks)
+        Columns: BỂ 1200, BỂ 2000, BỂ 4000 -> WaterTankLevel.level for tanks with capacity 1200/2000/4000 (tank_type='clean_water')
+    - NƯỚC SẠCH MỘT SỐ DOANH NGHIỆP (customer clean water reading)
+        Columns: NHUỘM HY, LEEHING HT, LEEHING TT, JASAN, LỆ TINH
+        Data: sum of CustomerReading.clean_water_reading per customer per day (0 if none)
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'BÁO CÁO'
+
+    # Styles
+    header_fill = PatternFill(start_color='FFECD9', end_color='FFECD9', fill_type='solid')
+    subheader_fill = PatternFill(start_color='FFF5E6', end_color='FFF5E6', fill_type='solid')
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    right = Alignment(horizontal='right', vertical='center')
+
+    # Title row (merge across columns A to M)
+    ws.merge_cells('A1:M1')
+    ws['A1'] = 'BÁO CÁO NHÀ MÁY NƯỚC SẠCH (m3)'
+    ws['A1'].font = Font(size=14, bold=True)
+    ws['A1'].alignment = center
+
+    # Header rows
+    # Row 2: group headers
+    headers_row2 = [
+        'STT', 'NGÀY', 'NƯỚC CẤP',
+        'LƯỢNG NƯỚC TẠI CÁC BỂ CHỨA', '', '',
+        'NƯỚC SẠCH MỘT SỐ DOANH NGHIỆP', '', '', '', '',
+        'NƯỚC THÔ JASAN', 'GHI CHÚ'
+    ]
+    ws.append(headers_row2)
+    # Row 3: sub-headers
+    sub_headers_row3 = [
+        '', '', '',
+        'BỂ 1200', 'BỂ 2000', 'BỂ 4000',
+        'NHUỘM HY', 'LEEHING HT', 'LEEHING TT', 'JASAN', 'LỆ TINH',
+        '', ''
+    ]
+    ws.append(sub_headers_row3)
+
+    # Merge group cells
+    ws.merge_cells('A2:A3')  # STT
+    ws.merge_cells('B2:B3')  # NGÀY
+    ws.merge_cells('C2:C3')  # NƯỚC CẤP
+    ws.merge_cells('D2:F2')  # BỂ CHỨA
+    ws.merge_cells('G2:K2')  # DOANH NGHIỆP
+    ws.merge_cells('L2:L3')  # NƯỚC THÔ JASAN
+    ws.merge_cells('M2:M3')  # GHI CHÚ
+
+    # Style header rows
+    for row_idx in (2, 3):
+        for col in range(1, 14):  # A..M (13 columns)
+            c = ws.cell(row=row_idx, column=col)
+            c.font = Font(bold=True)
+            c.alignment = center
+            c.fill = header_fill if row_idx == 2 else subheader_fill
+            c.border = border
+
+    # Column widths
+    widths = [6, 12, 12, 10, 10, 10, 12, 12, 12, 12, 12, 14, 18]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[chr(64 + i)].width = w
+
+    # Data preparation
+    dates = list(_date_range(start_dt, end_dt))
+
+    # Clean water plant data
+    plant_rows = db.session.query(CleanWaterPlant.date, CleanWaterPlant.clean_water_output, CleanWaterPlant.raw_water_jasan) \
+        .filter(CleanWaterPlant.date >= start_dt, CleanWaterPlant.date <= end_dt) \
+        .all()
+    clean_map = {r[0]: float(r[1] or 0) for r in plant_rows}
+    raw_jasan_map = {r[0]: float(r[2] or 0) for r in plant_rows}
+
+    # Tanks: only clean water tanks
+    tanks = WaterTank.query.filter(WaterTank.tank_type == 'clean_water').all()
+    # Map tank_id to label (by capacity or name)
+    def tank_label(t: WaterTank):
+        cap = int((t.capacity or 0))
+        if cap in (1200, 2000, 4000):
+            return f'BỂ {cap}'
+        # Fallback: try parse from name
+        name = (t.name or '').lower()
+        for c in (1200, 2000, 4000):
+            if str(c) in name:
+                return f'BỂ {c}'
+        return t.name or f'TANK {t.id}'
+
+    desired_tank_labels = ['BỂ 1200', 'BỂ 2000', 'BỂ 4000']
+    tank_by_label = {}
+    for t in tanks:
+        lbl = tank_label(t)
+        if lbl in desired_tank_labels and lbl not in tank_by_label:
+            tank_by_label[lbl] = t.id
+
+    # Fetch levels
+    levels = db.session.query(WaterTankLevel.date, WaterTankLevel.tank_id, WaterTankLevel.level) \
+        .filter(WaterTankLevel.date >= start_dt, WaterTankLevel.date <= end_dt, WaterTankLevel.tank_id.in_(tank_by_label.values() if tank_by_label else [-1])) \
+        .all()
+    levels_map = {lbl: {} for lbl in desired_tank_labels}
+    for dt_val, tank_id, level in levels:
+        # find label
+        for lbl, tid in tank_by_label.items():
+            if tid == tank_id:
+                levels_map[lbl][dt_val] = float(level or 0)
+                break
+
+    # Customers mapping
+    customer_columns = ['NHUỘM HY', 'LEEHING HT', 'LEEHING TT', 'JASAN', 'LỆ TINH']
+    cust_col_map = {k: [] for k in customer_columns}
+    all_customers = Customer.query.filter(Customer.is_active.is_(True)).all()
+    for c in all_customers:
+        name = (c.company_name or '').lower()
+        if 'jasan' in name:
+            cust_col_map['JASAN'].append(c.id)
+        elif 'lệ tinh' in name or 'le tinh' in name:
+            cust_col_map['LỆ TINH'].append(c.id)
+        elif 'hy' in name:
+            # nhuộm hy
+            cust_col_map['NHUỘM HY'].append(c.id)
+        elif 'leehing' in name and ('tt' in name or ' t.t' in name):
+            cust_col_map['LEEHING TT'].append(c.id)
+        elif 'leehing' in name:  # default to HT if not specified
+            cust_col_map['LEEHING HT'].append(c.id)
+
+    # Customer readings by day (clean water)
+    readings = db.session.query(
+        CustomerReading.date,
+        CustomerReading.customer_id,
+        db.func.sum(CustomerReading.clean_water_reading)
+    ).filter(
+        CustomerReading.date >= start_dt,
+        CustomerReading.date <= end_dt
+    ).group_by(CustomerReading.date, CustomerReading.customer_id).all()
+
+    # Build per-column map
+    cust_series = {k: {} for k in customer_columns}
+    for d, cid, total_clean in readings:
+        for col, ids in cust_col_map.items():
+            if cid in ids:
+                cust_series[col][d] = float(total_clean or 0) + float(cust_series[col].get(d, 0))
+                break
+
+    # Write data rows
+    row_idx = 4
+    stt = 1
+    for d in dates:
+        ws.cell(row=row_idx, column=1, value=stt).alignment = center
+        ws.cell(row=row_idx, column=2, value=d.strftime('%d/%m/%Y')).alignment = center
+
+        # NƯỚC CẤP
+        ws.cell(row=row_idx, column=3, value=clean_map.get(d, 0)).alignment = right
+
+        # Tanks D,E,F
+        ws.cell(row=row_idx, column=4, value=levels_map['BỂ 1200'].get(d, 0)).alignment = right
+        ws.cell(row=row_idx, column=5, value=levels_map['BỂ 2000'].get(d, 0)).alignment = right
+        ws.cell(row=row_idx, column=6, value=levels_map['BỂ 4000'].get(d, 0)).alignment = right
+
+        # Customers G..K
+        for i, col_name in enumerate(['NHUỘM HY', 'LEEHING HT', 'LEEHING TT', 'JASAN', 'LỆ TINH'], start=7):
+            ws.cell(row=row_idx, column=i, value=cust_series[col_name].get(d, 0)).alignment = right
+
+        # NƯỚC THÔ JASAN (L)
+        ws.cell(row=row_idx, column=12, value=raw_jasan_map.get(d, 0)).alignment = right
+
+        # GHI CHÚ (M) empty for now
+        ws.cell(row=row_idx, column=13, value='')
+
+        # Borders for the row
+        for col in range(1, 14):
+            ws.cell(row=row_idx, column=col).border = border
+        row_idx += 1
+        stt += 1
+
+    # Apply number formatting with thousand separators
+    for r in ws.iter_rows(min_row=4, min_col=3, max_col=13, max_row=row_idx-1):
+        for c in r:
+            c.number_format = '#,##0'
+
+    # Freeze panes below headers
+    ws.freeze_panes = 'A4'
+
+    return wb
+
 @bp.route('/generate-report/<report_type>')
 @login_required
 def generate_report(report_type):
@@ -75,8 +271,11 @@ def generate_report(report_type):
             start_dt = end_dt - timedelta(days=30)
 
         if format_type == 'excel':
-            # TẠO XLSX THẬT bằng openpyxl (KHÔNG dùng utils để tránh sai định dạng)
-            wb = _build_sample_report_wb(report_type, start_dt, end_dt)
+            # Excel: nhánh theo report_type
+            if report_type == 'clean_water_plant':
+                wb = _build_clean_water_plant_report_wb(start_dt, end_dt)
+            else:
+                wb = _build_sample_report_wb(report_type, start_dt, end_dt)
             filename = f"{report_type}_{date.today().strftime('%Y%m%d')}"
             return _xlsx_response(wb, filename)
 
