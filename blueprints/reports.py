@@ -457,16 +457,21 @@ def _build_monthly_wastewater_1_wb(start_dt: date, end_dt: date) -> Workbook:
     # Build monthly buckets 1..last_month
     months = list(range(1, last_month + 1))
 
-    # 1) BB DN = sum(clean_water_reading * water_ratio) per month
+    # 1) BB DN = sum(wastewater_reading) + sum(wastewater_calculated) per month (logic mới)
     bb_rows = db.session.query(
         extract('year', CustomerReading.date).label('y'),
         extract('month', CustomerReading.date).label('m'),
-        func.sum(func.coalesce(CustomerReading.clean_water_reading, 0) * func.coalesce(Customer.water_ratio, 0)).label('bb')
-    ).join(Customer, Customer.id == CustomerReading.customer_id).filter(
+        func.sum(func.coalesce(CustomerReading.wastewater_reading, 0)).label('ww_read'),
+        func.sum(func.coalesce(CustomerReading.wastewater_calculated, 0)).label('ww_calc'),
+    ).filter(
+        CustomerReading.customer_id == 1,
         CustomerReading.date >= start_year_dt,
         CustomerReading.date <= end_dt
     ).group_by('y', 'm').all()
-    bb_by_month = {(int(r.y), int(r.m)): float(r.bb or 0) for r in bb_rows}
+    bb_by_month = {
+        (int(r.y), int(r.m)): float((r.ww_read or 0) + (r.ww_calc or 0))
+        for r in bb_rows
+    }
 
     # 2..5,7,8 from WastewaterPlant for plant_number==1
     wp = db.session.query(
@@ -568,8 +573,8 @@ def _build_monthly_wastewater_1_wb(start_dt: date, end_dt: date) -> Workbook:
         (5, 'Bùn (kg)', sludge_vals, total_sludge, '#,##0'),
         (6, 'Tỷ lệ bùn kg/m3 theo nước BB chốt', sludge_ratio, total_sludge_ratio, '0.00'),
         (7, 'Điện (kw)', electricity_vals, total_electricity, '#,##0'),
-        (8, 'Hóa chất sử dụng (kg)', chem_vals, total_chem, '#,##0'),
-        (9, 'Tỷ lệ điện(kw/m3) theo nước BB chốt', elec_ratio, total_elec_ratio, '0.00'),
+        # (8, 'Hóa chất sử dụng (kg)', chem_vals, total_chem, '#,##0'),
+        (8, 'Tỷ lệ điện(kw/m3) theo nước BB chốt', elec_ratio, total_elec_ratio, '0.00'),
     ]
 
     r = header_row + 1
