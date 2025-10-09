@@ -201,6 +201,30 @@ def wastewater_plant_exists():
     exist_nums = sorted({r.plant_number for r in rows})
     return jsonify({'exists': len(exist_nums) > 0, 'plants': exist_nums})
 
+@bp.route('/api/water-tank-level/exists')
+@login_required
+def water_tank_level_exists():
+    """GET ?date=YYYY-MM-DD&tank_ids=1,2,3 -> {exists: bool, tanks: [ids]}"""
+    date_str = request.args.get('date')
+    the_date = coerce_opt(date_str, 'date')
+    if the_date is None:
+        return jsonify({'exists': False, 'tanks': []}), 400
+
+    ids_param = request.args.get('tank_ids', '')
+    try:
+        tank_ids = [int(x) for x in ids_param.split(',') if str(x).strip().isdigit()]
+    except Exception:
+        tank_ids = []
+    if not tank_ids:
+        return jsonify({'exists': False, 'tanks': []})
+
+    rows = db.session.query(WaterTankLevel.tank_id).filter(
+        WaterTankLevel.date == the_date,
+        WaterTankLevel.tank_id.in_(tank_ids)
+    ).all()
+    exist_ids = sorted({r.tank_id for r in rows})
+    return jsonify({'exists': len(exist_ids) > 0, 'tanks': exist_ids})
+
 @bp.route('/submit-well-data', methods=['POST'])
 @login_required
 def submit_well_data():

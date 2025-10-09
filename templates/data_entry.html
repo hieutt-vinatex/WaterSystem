@@ -380,7 +380,7 @@
                 <small class="text-muted">Nhập mức nước hiện tại của các bể chứa</small>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('submit_tank_levels') }}">
+                <form id="tanksForm" method="POST" action="{{ url_for('submit_tank_levels') }}">
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label for="tank-date" class="form-label">Ngày</label>
@@ -727,6 +727,43 @@ document.addEventListener('DOMContentLoaded', function () {
 
     form.submit();
   });
+});
+
+/* --- Tab Bể chứa: xác nhận ghi đè --- */
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('tanksForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const dateVal = (form.querySelector('input[name="date"]') || {}).value;
+        const entries = Array.from(form.querySelectorAll('input[name^="level_"]'))
+            .map(inp => ({ id: Number(inp.name.split('_')[1]), raw: (inp.value||'').trim() }))
+            .filter(x => x.raw !== '' && !Number.isNaN(x.id));
+
+        if (!dateVal || entries.length === 0) { form.submit(); return; }
+
+        try {
+            const idsParam = entries.map(x => x.id).join(',');
+            const url = `{{ url_for('data_entry.water_tank_level_exists') }}?date=${encodeURIComponent(dateVal)}&tank_ids=${encodeURIComponent(idsParam)}`;
+            const res = await fetch(url, { credentials: 'same-origin' });
+            const data = await res.json();
+            if (data.exists && Array.isArray(data.tanks) && data.tanks.length) {
+                const existSet = new Set(data.tanks.map(Number));
+                const toOverwrite = entries.filter(x => existSet.has(x.id));
+                if (toOverwrite.length) {
+                    const lines = toOverwrite.map(x => `- Bể ${x.id}: ${x.raw} m³`).join('\n');
+                    const ok = window.confirm(
+                        `Đã có dữ liệu ngày ${dateVal} cho một số bể chứa.\n` +
+                        `Bạn sắp ghi đè mức nước cho:\n${lines}\n\nTiếp tục?`
+                    );
+                    if (!ok) return;
+                }
+            }
+        } catch (_) { /* ignore lỗi mạng, vẫn submit */ }
+
+        form.submit();
+    });
 });
 </script>
 {% endblock %}
