@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from sqlalchemy import func
 from flask_login import login_required, current_user
 from app import db
 from models import Well, Customer, WaterTank, WellProduction, CleanWaterPlant, WastewaterPlant, WaterTankLevel, CustomerReading
@@ -69,6 +70,70 @@ def clean_water_plant_exists():
     ).first() is not None
 
     return jsonify({'exists': exists})
+
+# --- Tính Nước sạch sản xuất (m³) theo công thức yêu cầu ---
+# NS cấp ngày n = Tổng NS (Bể 1200+2000+4000) ngày n-1
+#                + Tổng SL giếng khoan ngày n
+#                - Tổng NS (Bể 1200+2000+4000) ngày n
+def _compute_clean_water_output_for_date(the_date: date):
+    try:
+        # Tìm 3 bể clean nước theo nhãn 1200/2000/4000 (tên có thể là "Bể chứa 1200"...)
+        tank_ids = []
+        missing_labels = []
+        for label in ("1200", "2000", "4000"):
+            tank = WaterTank.query.filter(
+                WaterTank.tank_type == 'clean_water',
+                WaterTank.name.ilike(f"%{label}%")
+            ).first()
+            if tank:
+                tank_ids.append(tank.id)
+            else:
+                missing_labels.append(label)
+
+        if missing_labels:
+            return {'ready': False, 'value': None, 'detail': {'missing_tanks': missing_labels}}
+
+        prev_date = the_date - timedelta(days=1)
+
+        prev_levels = db.session.query(WaterTankLevel.tank_id, WaterTankLevel.level) \
+            .filter(WaterTankLevel.date == prev_date, WaterTankLevel.tank_id.in_(tank_ids)).all()
+        today_levels = db.session.query(WaterTankLevel.tank_id, WaterTankLevel.level) \
+            .filter(WaterTankLevel.date == the_date, WaterTankLevel.tank_id.in_(tank_ids)).all()
+
+        prev_map = {tid: lvl for tid, lvl in prev_levels}
+        today_map = {tid: lvl for tid, lvl in today_levels}
+
+        missing_prev = [tid for tid in tank_ids if tid not in prev_map]
+        missing_today = [tid for tid in tank_ids if tid not in today_map]
+
+        well_sum = db.session.query(func.sum(WellProduction.production)) \
+            .filter(WellProduction.date == the_date).scalar()
+
+        ready = (not missing_prev) and (not missing_today) and (well_sum is not None)
+        if not ready:
+            return {
+                'ready': False,
+                'value': None,
+                'detail': {
+                    'missing_prev_tanks': missing_prev,
+                    'missing_today_tanks': missing_today,
+                    'well_sum_today': float(well_sum) if well_sum is not None else None,
+                }
+            }
+
+        sum_prev = float(sum(prev_map[tid] or 0.0 for tid in tank_ids))
+        sum_today = float(sum(today_map[tid] or 0.0 for tid in tank_ids))
+        sum_wells = float(well_sum or 0.0)
+        value = sum_prev + sum_wells - sum_today
+
+        return {'ready': True, 'value': value, 'detail': {
+            'sum_prev_tanks': sum_prev,
+            'sum_today_tanks': sum_today,
+            'sum_wells_today': sum_wells,
+        }}
+    except Exception as e:
+        logger.exception("Failed to compute clean water output: %s", e)
+        return {'ready': False, 'value': None, 'detail': {'error': str(e)}}
 
 # Helper: ở lại đúng tab
 def _redirect_to_tab(anchor: str):
@@ -208,12 +273,21 @@ def submit_clean_water_plant():
             'raw_water_jasan': 'float',
         }
 
+        # Tính tự động theo dữ liệu bể & giếng nếu có đủ dữ liệu
+        compute_res = _compute_clean_water_output_for_date(entry_date)
+
         if existing:
             # Luôn cập nhật các trường đã nhập (không cần cờ overwrite)
             partial_update_fields(existing, request.form, field_types)
+            if compute_res.get('ready'):
+                existing.clean_water_output = compute_res.get('value')
             msg = 'Cập nhật dữ liệu nhà máy nước sạch thành công'
         else:
             payload = build_insert_payload(request.form, field_types)
+            if compute_res.get('ready'):
+                payload['clean_water_output'] = compute_res.get('value')
+            else:
+                payload['clean_water_output'] = None  # Tránh lưu 0.0 mặc định nếu chưa đủ dữ liệu -> để NULL
             db.session.add(CleanWaterPlant(date=entry_date, **payload, created_by=current_user.id))
             msg = 'Thêm mới dữ liệu nhà máy nước sạch thành công'
 
