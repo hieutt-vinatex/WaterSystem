@@ -661,6 +661,30 @@ document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('customerForm');
   if (!form) return;
 
+    // Filtering: search by company/contact + filter by type (daily/monthly)
+    const searchEl = document.getElementById('customer-search');
+    const filterEl = document.getElementById('customer-filter');
+    const tbodySelector = '#customer-table-body .customer-row';
+
+    function applyCustomerFilters() {
+        const term = (searchEl && searchEl.value ? searchEl.value.toLowerCase().trim() : '');
+        const type = (filterEl && filterEl.value) || '';
+        const rows = document.querySelectorAll(tbodySelector);
+        rows.forEach(row => {
+            const dailyRaw = (row.dataset.daily || '').toLowerCase();
+            const isDaily = (dailyRaw === 'true' || dailyRaw === '1');
+            const matchesType = !type || (type === 'daily' ? isDaily : !isDaily);
+            const text0 = (row.cells && row.cells[0] ? row.cells[0].textContent.toLowerCase() : '');
+            const matchesSearch = !term || text0.includes(term);
+            row.style.display = (matchesType && matchesSearch) ? '' : 'none';
+        });
+    }
+
+    if (searchEl) searchEl.addEventListener('input', applyCustomerFilters);
+    if (filterEl) filterEl.addEventListener('change', applyCustomerFilters);
+    // Initial run
+    applyCustomerFilters();
+
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     const dateVal = (form.querySelector('input[name="date"]') || {}).value;

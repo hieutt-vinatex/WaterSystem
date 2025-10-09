@@ -491,6 +491,37 @@
 
 {% block extra_scripts %}
 <script>
+// ----- Users tab: unified filter (search + role + status) -----
+(function(){
+  const userSearchEl = document.getElementById('user-search-admin');
+  const userRoleEl = document.getElementById('user-filter-role');
+  const userStatusEl = document.getElementById('user-filter-status');
+
+  function applyUserFilters() {
+    const rows = document.querySelectorAll('.user-admin-row');
+    if (!rows.length) return;
+    const searchTerm = (userSearchEl && userSearchEl.value ? userSearchEl.value.toLowerCase() : '');
+    const roleVal = (userRoleEl && userRoleEl.value) || '';
+    const statusVal = (userStatusEl && userStatusEl.value) || '';
+
+    rows.forEach(row => {
+      const username = (row.cells[1]?.textContent || '').toLowerCase();
+      const fullName = (row.cells[2]?.textContent || '').toLowerCase();
+      const matchesSearch = !searchTerm || username.includes(searchTerm) || fullName.includes(searchTerm);
+      const matchesRole = !roleVal || (row.dataset.role === roleVal);
+      const matchesStatus = !statusVal || (row.dataset.status === statusVal);
+      row.style.display = (matchesSearch && matchesRole && matchesStatus) ? '' : 'none';
+    });
+  }
+
+  if (userSearchEl) userSearchEl.addEventListener('input', applyUserFilters);
+  if (userRoleEl) userRoleEl.addEventListener('change', applyUserFilters);
+  if (userStatusEl) userStatusEl.addEventListener('change', applyUserFilters);
+
+  // Run once on load to normalize
+  applyUserFilters();
+})();
+
 // Customer search and filter functionality
 document.getElementById('customer-search-admin').addEventListener('input', function() {
     const searchTerm = this.value.toLowerCase();
@@ -519,6 +550,8 @@ document.getElementById('customer-filter-admin').addEventListener('change', func
         } else if (filterValue === 'inactive' && row.dataset.status === 'inactive') {
             row.style.display = '';
         } else if (filterValue === 'daily' && row.dataset.reading === 'daily') {
+            row.style.display = '';
+        } else if (filterValue === 'monthly' && row.dataset.reading === 'monthly') {
             row.style.display = '';
         } else {
             row.style.display = 'none';
