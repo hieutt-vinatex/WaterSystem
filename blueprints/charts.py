@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 def kpi_data():
     """API endpoint for KPI dashboard data"""
     try:
-        today = date.today()
+        # Optional date param to view historical KPI
+        date_str = request.args.get('date')
+        today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
         month_start = today.replace(day=1)
 
         # Today's production
@@ -36,7 +38,7 @@ def kpi_data():
             db.func.sum(WastewaterPlant.input_flow_tqt)
         ).filter(WastewaterPlant.date == today).scalar() or 0
 
-        # Active customers
+        # Active customers (not date dependent)
         active_customers = Customer.query.filter_by(is_active=True).count()
 
         return jsonify({

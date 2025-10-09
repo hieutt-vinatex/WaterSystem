@@ -2,12 +2,14 @@
 
 // Global variables
 let kpiData = {};
+let selectedDashboardDate = null; // YYYY-MM-DD or null for today
 let systemDiagramLoaded = false;
 
 // Load KPI data from API
 async function loadKPIData() {
     try {
-        const response = await fetch('/api/kpi-data');
+        const url = selectedDashboardDate ? `/api/kpi-data?date=${selectedDashboardDate}` : '/api/kpi-data';
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.error) {
@@ -269,6 +271,9 @@ document.addEventListener('DOMContentLoaded', function() {
             makeSystemDiagramInteractive();
         }
     }, 1000);
+
+    // Initialize dashboard date controls
+    initDashboardDatePicker();
 });
 
 // View chart details function
@@ -284,3 +289,28 @@ window.dashboardUtils = {
     handleZoneClick,
     viewChartDetails
 };
+
+// New: Date picker behavior for dashboard
+function initDashboardDatePicker() {
+    const dateInput = document.getElementById('dashboard-date');
+
+    if (!dateInput) return;
+
+    // Set default to today and set max to today
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    dateInput.max = todayStr;
+    dateInput.value = todayStr;
+
+    // Apply selected date: reload KPI only (charts unaffected)
+    const onApply = () => {
+        const value = dateInput.value;
+        if (!value) return;
+        selectedDashboardDate = value;
+        // Reload KPI only
+        loadKPIData();
+    };
+
+    // Trigger on date change
+    dateInput.addEventListener('change', onApply);
+}
