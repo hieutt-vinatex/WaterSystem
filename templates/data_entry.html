@@ -69,7 +69,7 @@
                                         {% endif %}
                                     </h6>
                                     <div class="mb-2">
-                                        <label class="form-label">Sản lượng (m³)</label>
+                                        <label class="form-label">Lượng nước khai thác (m³)</label>
                                         <input type="number" class="form-control" name="production_{{ well.id }}" 
                                                step="0.1" min="0" {% if well.is_backup %}value="0" readonly{% endif %}>
                                         <input type="hidden" name="well_ids" value="{{ well.id }}">
