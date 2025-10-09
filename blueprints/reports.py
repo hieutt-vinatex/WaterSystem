@@ -464,7 +464,7 @@ def _build_monthly_wastewater_1_wb(start_dt: date, end_dt: date) -> Workbook:
         func.sum(func.coalesce(CustomerReading.wastewater_reading, 0)).label('ww_read'),
         func.sum(func.coalesce(CustomerReading.wastewater_calculated, 0)).label('ww_calc'),
     ).filter(
-        CustomerReading.customer_id == 1,
+        # CustomerReading.customer_id == 1,
         CustomerReading.date >= start_year_dt,
         CustomerReading.date <= end_dt
     ).group_by('y', 'm').all()
@@ -573,7 +573,181 @@ def _build_monthly_wastewater_1_wb(start_dt: date, end_dt: date) -> Workbook:
         (5, 'Bùn (kg)', sludge_vals, total_sludge, '#,##0'),
         (6, 'Tỷ lệ bùn kg/m3 theo nước BB chốt', sludge_ratio, total_sludge_ratio, '0.00'),
         (7, 'Điện (kw)', electricity_vals, total_electricity, '#,##0'),
-        # (8, 'Hóa chất sử dụng (kg)', chem_vals, total_chem, '#,##0'),
+        (8, 'Hóa chất sử dụng (kg)', chem_vals, total_chem, '#,##0'),
+        (8, 'Tỷ lệ điện(kw/m3) theo nước BB chốt', elec_ratio, total_elec_ratio, '0.00'),
+    ]
+
+    r = header_row + 1
+    red_font = Font(color='FF0000', bold=True)
+    for (stt, label, series, total_value, numfmt) in rows:
+        ws.cell(row=r, column=1, value=stt).alignment = title_center
+        ws.cell(row=r, column=2, value=label)
+        # Monthly values
+        for i, mval in enumerate(series):
+            col = 3 + i
+            c = ws.cell(row=r, column=col, value=mval)
+            c.number_format = numfmt
+            c.alignment = Alignment(horizontal='right')
+            c.border = border
+        # Total column
+        ctot = ws.cell(row=r, column=total_cols, value=total_value)
+        ctot.number_format = numfmt
+        ctot.alignment = Alignment(horizontal='right')
+        ctot.font = red_font
+        ctot.border = border
+        # Borders for first two columns
+        ws.cell(row=r, column=1).border = border
+        ws.cell(row=r, column=2).border = border
+        r += 1
+
+    # Borders for header row already set; set for any empty cells in header
+    for col in range(1, total_cols + 1):
+        ws.cell(row=header_row, column=col).border = border
+
+    ws.freeze_panes = ws['C6']
+
+    return wb
+
+
+def _build_monthly_wastewater_2_wb(start_dt: date, end_dt: date) -> Workbook:
+    """BÁO CÁO TỔNG HỢP NMNT SỐ 2 - theo tháng (T1..Tn + Tổng cộng)
+
+    Chỉ tiêu theo yêu cầu (same as NMNT 1 but for plant_number = 2):
+      1. Nước thải theo BB chốt với DN (m3) = sum(wastewater_reading) + sum(wastewater_calculated) theo tháng
+      2. Nước thải theo ĐH tại nhà máy (m3) = sum(WastewaterPlant.wastewater_meter) (plant 2)
+      3. Nước thải theo Đầu vào TQT (m3) = sum(input_flow_tqt)
+      4. Nước thải theo Đầu Ra TQT (m3) = sum(output_flow_tqt)
+      5. Bùn (kg) = sum(sludge_output)
+      6. Tỷ lệ bùn kg/m3 theo nước BB chốt = Bùn / (Nước thải BB DN)
+      7. Điện (kW) = sum(electricity)
+      8. Hóa chất sử dụng (kg) = sum(chemical_usage)
+      9. Tỷ lệ điện (kW/m3) theo nước BB chốt = Điện / (Nước thải BB DN)
+    """
+    from models import WastewaterPlant, CustomerReading, Customer
+
+    year = end_dt.year
+    start_year_dt = date(year, 1, 1)
+    last_month = end_dt.month
+
+    # Build monthly buckets 1..last_month
+    months = list(range(1, last_month + 1))
+
+    # 1) BB DN = sum(wastewater_reading) + sum(wastewater_calculated) per month 
+    bb_rows = db.session.query(
+        extract('year', CustomerReading.date).label('y'),
+        extract('month', CustomerReading.date).label('m'),
+        func.sum(func.coalesce(CustomerReading.wastewater_reading, 0)).label('ww_read'),
+        func.sum(func.coalesce(CustomerReading.wastewater_calculated, 0)).label('ww_calc'),
+    ).filter(
+        CustomerReading.date >= start_year_dt,
+        CustomerReading.date <= end_dt
+    ).group_by('y', 'm').all()
+    bb_by_month = {
+        (int(r.y), int(r.m)): float((r.ww_read or 0) + (r.ww_calc or 0))
+        for r in bb_rows
+    }
+
+    # 2..5,7,8 from WastewaterPlant for plant_number==2
+    wp = db.session.query(
+        extract('year', WastewaterPlant.date).label('y'),
+        extract('month', WastewaterPlant.date).label('m'),
+        func.sum(func.coalesce(WastewaterPlant.wastewater_meter, 0)).label('meter'),
+        func.sum(func.coalesce(WastewaterPlant.input_flow_tqt, 0)).label('tqt_in'),
+        func.sum(func.coalesce(WastewaterPlant.output_flow_tqt, 0)).label('tqt_out'),
+        func.sum(func.coalesce(WastewaterPlant.sludge_output, 0)).label('sludge'),
+        func.sum(func.coalesce(WastewaterPlant.electricity, 0)).label('electricity'),
+        func.sum(func.coalesce(WastewaterPlant.chemical_usage, 0)).label('chem')
+    ).filter(
+        WastewaterPlant.date >= start_year_dt,
+        WastewaterPlant.date <= end_dt,
+        WastewaterPlant.plant_number == 2
+    ).group_by('y', 'm').all()
+    wp_by_month = {(int(r.y), int(r.m)): r for r in wp}
+
+    # Prepare values per month
+    def get_month_val(key, m):
+        row = wp_by_month.get((year, m))
+        if not row:
+            return 0.0
+        return float(getattr(row, key) or 0)
+
+    bb_vals = [bb_by_month.get((year, m), 0.0) for m in months]
+    meter_vals = [get_month_val('meter', m) for m in months]
+    tqt_in_vals = [get_month_val('tqt_in', m) for m in months]
+    tqt_out_vals = [get_month_val('tqt_out', m) for m in months]
+    sludge_vals = [get_month_val('sludge', m) for m in months]
+    electricity_vals = [get_month_val('electricity', m) for m in months]
+    chem_vals = [get_month_val('chem', m) for m in months]
+
+    # Ratios per month
+    def safe_ratio(num, den):
+        return (num / den) if den else 0.0
+    sludge_ratio = [safe_ratio(sludge_vals[i], bb_vals[i]) for i in range(len(months))]
+    elec_ratio = [safe_ratio(electricity_vals[i], bb_vals[i]) for i in range(len(months))]
+
+    # Totals (sum) and overall ratios using total numerators/denominators
+    total_bb = sum(bb_vals)
+    total_meter = sum(meter_vals)
+    total_tqt_in = sum(tqt_in_vals)
+    total_tqt_out = sum(tqt_out_vals)
+    total_sludge = sum(sludge_vals)
+    total_electricity = sum(electricity_vals)
+    total_chem = sum(chem_vals)
+    total_sludge_ratio = safe_ratio(total_sludge, total_bb)
+    total_elec_ratio = safe_ratio(total_electricity, total_bb)
+
+    # Build workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'BÁO CÁO'
+
+    header_font = Font(bold=True)
+    title_center = Alignment(horizontal='center', vertical='center')
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    total_cols = 2 + last_month + 1  # STT, Nội dung, T1..Tn, Tổng cộng
+    last_col_letter = chr(64 + total_cols)
+
+    # Title rows (approximation of screenshot)
+    ws.merge_cells(f'A1:{last_col_letter}1')
+    ws['A1'] = 'CÔNG TY CP PTHT DỆT MAY PHỐ NỐI'
+    ws['A1'].alignment = title_center
+    ws.merge_cells(f'A2:{last_col_letter}2')
+    ws['A2'] = 'PHÒNG QUẢN LÝ HẠ TẦNG'
+    ws['A2'].alignment = title_center
+    ws['A2'].font = Font(bold=True)
+    ws.merge_cells(f'A4:{last_col_letter}4')
+    ws['A4'] = f'BÁO CÁO BÙN, ĐIỆN, NƯỚC NMXLNT  SỐ 2 NĂM {year}'
+    ws['A4'].alignment = title_center
+    ws['A4'].font = Font(size=12, bold=True)
+
+    # Table header
+    headers = ['Stt', 'Nội dung'] + [f'T{m}' for m in months] + ['Tổng cộng']
+    ws.append([''] * 2)  # row 3 spacer
+    ws.append(headers)   # row 5 (since row 1,2,3,4 already)
+    header_row = 5
+    for c in range(1, total_cols + 1):
+        cell = ws.cell(row=header_row, column=c)
+        cell.font = header_font
+        cell.alignment = title_center
+        cell.border = border
+
+    # Column widths
+    ws.column_dimensions['A'].width = 6
+    ws.column_dimensions['B'].width = 48
+    for i in range(3, total_cols + 1):
+        ws.column_dimensions[chr(64 + i)].width = 14
+
+    # Data rows definition (including chemical_usage row 8 for plant 2)
+    rows = [
+        # (1, 'Nước thải theo BB chốt với DN (m3)', bb_vals, total_bb, '#,##0'),
+        (1, 'Nước thải theo ĐH tại nhà máy (m3)', meter_vals, total_meter, '#,##0'),
+        (2, 'Nước thải theo Đầu vào TQT (m3)', tqt_in_vals, total_tqt_in, '#,##0'),
+        (3, 'Nước thải theo Đầu Ra TQT (m3)', tqt_out_vals, total_tqt_out, '#,##0'),
+        (4, 'Bùn (kg)', sludge_vals, total_sludge, '#,##0'),
+        (5, 'Tỷ lệ bùn kg/m3 theo nước BB chốt', sludge_ratio, total_sludge_ratio, '0.00'),
+        (6, 'Điện (kw)', electricity_vals, total_electricity, '#,##0'),
+        (7, 'Hóa chất sử dụng (kg)', chem_vals, total_chem, '#,##0'),
         (8, 'Tỷ lệ điện(kw/m3) theo nước BB chốt', elec_ratio, total_elec_ratio, '0.00'),
     ]
 
@@ -633,6 +807,8 @@ def generate_report(report_type):
                 wb = _build_nmns_monthly_power_chem_wb(date(end_dt.year, 1, 1), end_dt)
             elif report_type == 'monthly_wastewater_1':
                 wb = _build_monthly_wastewater_1_wb(date(end_dt.year, 1, 1), end_dt)
+            elif report_type == 'monthly_wastewater_2':
+                wb = _build_monthly_wastewater_2_wb(date(end_dt.year, 1, 1), end_dt)
             else:
                 wb = _build_sample_report_wb(report_type, start_dt, end_dt)
             filename = f"{report_type}_{date.today().strftime('%Y%m%d')}"
