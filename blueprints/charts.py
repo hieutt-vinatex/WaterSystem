@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 from app import db
-from models import Well, WellProduction, CleanWaterPlant, WastewaterPlant, CustomerReading, Customer
+from models import Well, WellProduction, CleanWaterPlant, WastewaterPlant, CustomerReading, Customer, WaterTankLevel
 
 bp = Blueprint('charts', __name__)
 logger = logging.getLogger(__name__)
@@ -19,10 +19,7 @@ def kpi_data():
         today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
         month_start = today.replace(day=1)
 
-        # Today's production
-        today_well_production = db.session.query(
-            db.func.sum(WellProduction.production)
-        ).filter(WellProduction.date == today).scalar() or 0
+        today_well_production = _clean_water_production_today()
 
         # Monthly production
         month_well_production = db.session.query(
@@ -30,9 +27,15 @@ def kpi_data():
         ).filter(WellProduction.date >= month_start).scalar() or 0
 
         # Clean water output today
-        today_clean_water = CleanWaterPlant.query.filter_by(date=today).first()
-        today_clean_output = today_clean_water.clean_water_output if today_clean_water else 0
+        # Logic mới: nước sạch không Jasan + tồn kho hôm qua - tồn kho hôm nay
+        clean_without_jasan = _clean_water_without_jasan()
+        today_jasan = db.session.query(
+            db.func.sum(CleanWaterPlant.raw_water_jasan)
+        ).filter(CleanWaterPlant.date == today).scalar() or 0
 
+        inventory_yesterday = _get_tank_inventory_yesterday()
+        inventory_today = _get_tank_inventory_today()
+        today_clean_output = (clean_without_jasan - today_jasan) * 0.98 + inventory_yesterday - inventory_today
         # Wastewater treatment today
         today_wastewater = db.session.query(
             db.func.sum(WastewaterPlant.input_flow_tqt)
@@ -50,6 +53,95 @@ def kpi_data():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+    #lượng nước sạch nhà máy nước sạch = 98% lượng nước thô của 6 giếng khoan 
+def _clean_water_without_jasan():
+    production_today = _clean_water_production_today()
+    return float(production_today)
+
+
+def _clean_water_production_today():
+    date_str = request.args.get('date')
+    today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
+    
+    # Lấy tổng production của ngày hôm nay
+    cur_sum = db.session.query(
+        db.func.sum(WellProduction.production)
+    ).filter(WellProduction.date == today).scalar() or 0
+    
+    # Kiểm tra xem có phải ngày đầu tháng không
+    if today.day == 1:
+        # Ngày đầu tháng: sum(production) - 0
+        return float(cur_sum)
+    else:
+        # Các ngày khác: today - yesterday
+        prev_day = today - timedelta(days=1)
+        prev_sum = db.session.query(
+            db.func.sum(WellProduction.production)
+        ).filter(WellProduction.date == prev_day).scalar() or 0
+        
+        return float(cur_sum) - float(prev_sum) 
+
+    
+def _calculate_tank_inventory(tank_id: int, level: float) -> float:
+    """
+    Tính lượng nước tồn theo công thức riêng cho từng bể:
+    - Tank 1: tồn = (9 - level) * 115
+    - Tank 2: tồn = (12 - level) * 160  
+    - Tank 3: tồn = (13 - level) * 300
+    """
+    if tank_id == 1:
+        return (9 - level) * 115
+    elif tank_id == 2:
+        return (12 - level) * 160
+    elif tank_id == 3:
+        return (13 - level) * 300
+    else:
+        return 0.0  # Bể không xác định
+
+
+def _get_tank_inventory_yesterday():
+    """
+    Tính tổng tồn kho ngày hôm qua và hôm nay của tất cả các bể
+    Trả về tuple (tồn_hôm_qua, tồn_hôm_nay)
+    """
+    date_str = request.args.get('date')
+    today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
+    yesterday = today - timedelta(days=1)
+    
+    # Lấy mực nước của các bể ngày hôm qua
+    yesterday_levels = db.session.query(
+        WaterTankLevel.tank_id,
+        WaterTankLevel.level
+    ).filter(WaterTankLevel.date == yesterday).all()
+    # Tính tổng tồn kho hôm qua
+    total_yesterday = 0.0
+    for tank_level in yesterday_levels:
+        level = float(tank_level.level or 0)
+        inventory = _calculate_tank_inventory(tank_level.tank_id, level)
+        total_yesterday += inventory
+    return total_yesterday
+
+def _get_tank_inventory_today():
+    date_str = request.args.get('date')
+    today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
+    
+    # Lấy mực nước của các bể ngày hôm nay
+    today_levels = db.session.query(
+        WaterTankLevel.tank_id,
+        WaterTankLevel.level
+    ).filter(WaterTankLevel.date == today).all()
+    # Tính tổng tồn kho hôm nay
+    total_today = 0.0
+    for tank_level in today_levels:
+        level = float(tank_level.level or 0)
+        inventory = _calculate_tank_inventory(tank_level.tank_id, level)
+        total_today += inventory
+    print('total_today', total_today)
+
+    return total_today
+
 
 @bp.route('/api/dashboard-data')
 @login_required
