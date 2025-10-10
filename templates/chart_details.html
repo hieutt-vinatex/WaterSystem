@@ -215,12 +215,65 @@ const chartTextColor = '#333333';
 const chartGridColor = '#e0e0e0';
 
 document.addEventListener('DOMContentLoaded', () => {
+  const loadedFromQuery = initFromQuery();
   initDates();
   initEvents();
-  loadChartData(); // initial
+  if (!loadedFromQuery) {
+    loadChartData(); // default initial
+  }
 });
 
 /* -------- Init -------- */
+function initFromQuery() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const days = params.get('days');
+    const start = params.get('start_date');
+    const end = params.get('end_date');
+
+    const periodEl = document.getElementById('detail-period');
+    const startEl = document.getElementById('detail-start-date');
+    const endEl = document.getElementById('detail-end-date');
+
+    if (start && end) {
+      // Apply custom range from dashboard
+      if (startEl) startEl.value = start;
+      if (endEl) endEl.value = end;
+      // Reflect selection on period if there's a custom option
+      if (periodEl && Array.from(periodEl.options).some(o => o.value === 'custom')) {
+        periodEl.value = 'custom';
+      }
+      // Enforce constraints
+      if (startEl && endEl) {
+        startEl.max = end;
+        endEl.min = start;
+      }
+      loadChartData(null, start, end);
+      return true;
+    }
+
+    if (days && /^\d+$/.test(days)) {
+      const d = parseInt(days);
+      // Reflect selection
+      if (periodEl) {
+        periodEl.value = String(d);
+      }
+      // Compute and display start/end
+      const today = new Date();
+      const endStr = toInputDate(today);
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - Math.max(d - 1, 0));
+      const startStr = toInputDate(startDate);
+      if (startEl) { startEl.max = endStr; startEl.value = startStr; }
+      if (endEl) { endEl.min = startStr; endEl.max = endStr; endEl.value = endStr; }
+      loadChartData(d);
+      return true;
+    }
+  } catch (e) {
+    console.warn('Failed to init from query:', e);
+  }
+  return false;
+}
 function initDates() {
   const end = new Date();
   const start = new Date();

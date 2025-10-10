@@ -597,8 +597,29 @@ function updateChartsWithCustomRange() {
 
 // View chart details function
 function viewChartDetails(chartType) {
-    console.log(`Navigating to details for: ${chartType}`);
-    window.location.href = `/chart-details/${chartType}`;
+    const periodEl = document.getElementById('chart-period');
+    const startEl = document.getElementById('chart-start-date');
+    const endEl = document.getElementById('chart-end-date');
+
+    const params = new URLSearchParams();
+    if (periodEl) {
+        const val = periodEl.value;
+        if (val === 'custom' && startEl?.value && endEl?.value) {
+            params.set('start_date', startEl.value);
+            params.set('end_date', endEl.value);
+        } else if (/^\d+$/.test(val)) {
+            params.set('days', val);
+        } else if (startEl?.value && endEl?.value) {
+            // Fallback: if dates present, pass them
+            params.set('start_date', startEl.value);
+            params.set('end_date', endEl.value);
+        }
+    }
+
+    const qs = params.toString();
+    const url = qs ? `/chart-details/${chartType}?${qs}` : `/chart-details/${chartType}`;
+    console.log('Navigating to details:', url);
+    window.location.href = url;
 }
 
 
