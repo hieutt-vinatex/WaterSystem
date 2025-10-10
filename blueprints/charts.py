@@ -69,9 +69,6 @@ def _clean_water_without_jasan(today):
 
 
 def _clean_water_production_today(today):
-    # date_str = request.args.get('date')
-    # today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
-    
     # Lấy tổng production của ngày hôm nay
     cur_sum = db.session.query(
         db.func.sum(WellProduction.production)
@@ -159,10 +156,34 @@ def dashboard_data():
             days = int(request.args.get('days', 30))
             end_date = date.today()
             start_date = end_date - timedelta(days=days)
-        well_data = db.session.query(
-            WellProduction.date, db.func.sum(WellProduction.production).label('total_production')
-        ).filter(WellProduction.date >= start_date, WellProduction.date <= end_date)\
-         .group_by(WellProduction.date).all()
+        # Tính sản lượng giếng theo ngày: ngày n = tổng production ngày n - tổng production ngày (n-1)
+        # Tạo dải ngày
+        dates = []
+        cur = start_date
+        while cur <= end_date:
+            dates.append(cur)
+            cur += timedelta(days=1)
+
+        # Lấy tổng production từ (start_date - 1) đến end_date
+        prev_start = start_date - timedelta(days=1)
+        well_rows = db.session.query(
+            WellProduction.date,
+            db.func.sum(WellProduction.production).label('total_production')
+        ).filter(
+            WellProduction.date >= prev_start,
+            WellProduction.date <= end_date
+        ).group_by(WellProduction.date).all()
+        prod_map = {r.date: float(r.total_production or 0) for r in well_rows}
+        well_series = []
+        for d in dates:
+            prev_day = d - timedelta(days=1)
+            today_sum = prod_map.get(d, 0.0)
+            yesterday_sum = prod_map.get(prev_day, 0.0)
+            val = float(today_sum) - float(yesterday_sum)
+            if val < 0:
+                val = 0.0
+            well_series.append({'date': str(d), 'production': val})
+        # well_series = [v if v >= 0 else 0 for v in well_series]
         clean_water_data = CleanWaterPlant.query.filter(
             CleanWaterPlant.date >= start_date, CleanWaterPlant.date <= end_date
         ).all()
@@ -182,7 +203,7 @@ def dashboard_data():
         ).filter(CustomerReading.date >= start_date, CustomerReading.date <= end_date)\
          .group_by(CustomerReading.date).all()
         return jsonify({
-            'well_production': [{'date': str(d.date), 'production': float(d.total_production or 0)} for d in well_data],
+            'well_production': well_series,
             # Total = clean_water_output + raw_water_jasan for consistency with details page
             'clean_water': [
                 {
@@ -303,8 +324,9 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
         # 1) Tổng sản lượng theo ngày: dùng _get_daily_production để đảm bảo cùng logic KPI
         total_series = []
         for d in dates:
-            total_series.append(_get_daily_production(d, d - timedelta(days=1)))
-
+            total_series.append(_clean_water_production_today(d))
+        # Hiển thị: nếu giá trị âm thì đưa về 0
+        total_series = [v if v >= 0 else 0 for v in total_series]
         # 2) Tổng công suất (tổng capacity của các giếng được tính)
         qw = db.session.query(Well)
         if well_ids:
@@ -374,9 +396,23 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
     for i, (code, date_dict) in enumerate(sorted(wells_map.items())):
         color = palette[i % len(palette)]
         well_colors[code] = color
+        # Tính sản lượng theo từng giếng: today - yesterday; nếu là ngày 1 thì lấy today
+        series = []
+        for d in dates_set:
+            cur = float(date_dict.get(d, 0) or 0)
+            if d.day == 1:
+                val = cur
+            else:
+                prev = d - timedelta(days=1)
+                prev_val = float(date_dict.get(prev, 0) or 0)
+                val = cur - prev_val
+            series.append(val)
+        # Hiển thị: nếu giá trị âm thì đưa về 0
+        series = [v if v >= 0 else 0 for v in series]
+
         datasets.append({
             'label': code,
-            'data': [date_dict.get(d, 0) for d in dates_set],
+            'data': series,
             'borderColor': color,
             'backgroundColor': color.replace('rgb', 'rgba').replace(')', ',0.15)'),
             'fill': False,
