@@ -18,8 +18,8 @@ def kpi_data():
         date_str = request.args.get('date')
         today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
         month_start = today.replace(day=1)
-
-        today_well_production = _clean_water_production_today()
+        yesterday = today - timedelta(days=1)
+        today_well_production = _clean_water_production_today(today)
 
         # Monthly production
         month_well_production = db.session.query(
@@ -28,14 +28,8 @@ def kpi_data():
 
         # Clean water output today
         # Logic mới: nước sạch không Jasan + tồn kho hôm qua - tồn kho hôm nay
-        clean_without_jasan = _clean_water_without_jasan()
-        today_jasan = db.session.query(
-            db.func.sum(CleanWaterPlant.raw_water_jasan)
-        ).filter(CleanWaterPlant.date == today).scalar() or 0
 
-        inventory_yesterday = _get_tank_inventory_yesterday()
-        inventory_today = _get_tank_inventory_today()
-        today_clean_output = (clean_without_jasan - today_jasan) * 0.98 + inventory_yesterday - inventory_today
+        today_clean_output = _get_daily_production(today, yesterday)
         # Wastewater treatment today
         today_wastewater = db.session.query(
             db.func.sum(WastewaterPlant.input_flow_tqt)
@@ -55,15 +49,28 @@ def kpi_data():
         return jsonify({'error': str(e)}), 500
 
 
-    #lượng nước sạch nhà máy nước sạch = 98% lượng nước thô của 6 giếng khoan 
-def _clean_water_without_jasan():
-    production_today = _clean_water_production_today()
+# tính sản lượng theo ngày
+def _get_daily_production(today, yesterday):
+    clean_without_jasan = _clean_water_without_jasan(today)
+    today_jasan = db.session.query(
+        db.func.sum(CleanWaterPlant.raw_water_jasan)
+    ).filter(CleanWaterPlant.date == today).scalar() or 0
+
+    inventory_yesterday = _get_tank_inventory_yesterday(yesterday)
+    inventory_today = _get_tank_inventory_today(today)
+
+    return float((clean_without_jasan - today_jasan) * 0.98 + inventory_yesterday - inventory_today)
+
+
+    #lượng nước sạch nhà máy nước sạch
+def _clean_water_without_jasan(today):
+    production_today = _clean_water_production_today(today)
     return float(production_today)
 
 
-def _clean_water_production_today():
-    date_str = request.args.get('date')
-    today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
+def _clean_water_production_today(today):
+    # date_str = request.args.get('date')
+    # today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
     
     # Lấy tổng production của ngày hôm nay
     cur_sum = db.session.query(
@@ -101,15 +108,11 @@ def _calculate_tank_inventory(tank_id: int, level: float) -> float:
         return 0.0  # Bể không xác định
 
 
-def _get_tank_inventory_yesterday():
+def _get_tank_inventory_yesterday(yesterday):
     """
     Tính tổng tồn kho ngày hôm qua và hôm nay của tất cả các bể
     Trả về tuple (tồn_hôm_qua, tồn_hôm_nay)
     """
-    date_str = request.args.get('date')
-    today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
-    yesterday = today - timedelta(days=1)
-    
     # Lấy mực nước của các bể ngày hôm qua
     yesterday_levels = db.session.query(
         WaterTankLevel.tank_id,
@@ -123,9 +126,9 @@ def _get_tank_inventory_yesterday():
         total_yesterday += inventory
     return total_yesterday
 
-def _get_tank_inventory_today():
-    date_str = request.args.get('date')
-    today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
+def _get_tank_inventory_today(today):
+    # date_str = request.args.get('date')
+    # today = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
     
     # Lấy mực nước của các bể ngày hôm nay
     today_levels = db.session.query(
@@ -297,16 +300,10 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
         cur += timedelta(days=1)
 
     if aggregate:
-        # 1) Tổng sản lượng theo ngày
-        q = db.session.query(
-            WellProduction.date,
-            db.func.sum(WellProduction.production).label('total_production')
-        ).filter(WellProduction.date >= start_date, WellProduction.date <= end_date)
-        if well_ids:
-            q = q.filter(WellProduction.well_id.in_(well_ids))
-        rows = q.group_by(WellProduction.date).order_by(WellProduction.date).all()
-        prod_map = {r.date: float(r.total_production or 0) for r in rows}
-        total_series = [prod_map.get(d, 0.0) for d in dates]
+        # 1) Tổng sản lượng theo ngày: dùng _get_daily_production để đảm bảo cùng logic KPI
+        total_series = []
+        for d in dates:
+            total_series.append(_get_daily_production(d, d - timedelta(days=1)))
 
         # 2) Tổng công suất (tổng capacity của các giếng được tính)
         qw = db.session.query(Well)
