@@ -18,7 +18,7 @@
                 <h5><i class="fas fa-tint me-2"></i>Báo cáo nước sạch hằng ngày</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">Báo cáo sản lượng giếng khoan và nhà máy nước sạch theo ngày</p>
+                <!-- <p class="text-muted">Báo cáo sản lượng giếng khoan và nhà máy nước sạch theo ngày</p> -->
                 
                 <form id="nmns-report-form">
                     <div class="mb-3">
@@ -79,7 +79,7 @@
                 <h5><i class="fas fa-calendar-alt me-2"></i>Báo cáo tiêu hao điện & hóa chất NMNS</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">Báo cáo hàng tháng về tiêu hao điện và hóa chất của nhà máy nước sạch</p>
+                <!-- <p class="text-muted">Báo cáo hàng tháng về tiêu hao điện và hóa chất của nhà máy nước sạch</p> -->
                 
                 <form id="monthly-clean-water-form">
                     <div class="mb-3">
@@ -111,7 +111,7 @@
                 <h5><i class="fas fa-recycle me-2"></i>Báo cáo tổng hợp NMNT số 1</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">Báo cáo hàng tháng về bùn, điện, nước của nhà máy nước thải số 1</p>
+                <!-- <p class="text-muted">Báo cáo hàng tháng về bùn, điện, nước của nhà máy nước thải số 1</p> -->
                 
                 <form id="monthly-wastewater1-form">
                     <div class="mb-3">
@@ -143,7 +143,7 @@
                 <h5><i class="fas fa-recycle me-2"></i>Báo cáo tổng hợp NMNT số 2</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">Báo cáo hàng tháng về bùn, điện, nước, hóa chất của nhà máy nước thải số 2</p>
+                <!-- <p class="text-muted">Báo cáo hàng tháng về bùn, điện, nước, hóa chất của nhà máy nước thải số 2</p> -->
                 
                 <form id="monthly-wastewater2-form">
                     <div class="mb-3">
@@ -204,8 +204,10 @@
     </div>
 </div>
 
+
+<!-- Comment để chuyển từ lưu trạng thái ở chân trang sang pop up -->
 <!-- Report Status -->
-<div class="row mt-4">
+<!-- <div class="row mt-4">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
@@ -219,7 +221,18 @@
             </div>
         </div>
     </div>
+</div> -->
+
+<!-- Toast popup -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index:1080">
+  <div id="reportToast" class="toast align-items-center text-white border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div id="reportToastBody" class="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
 </div>
+
 {% endblock %}
 
 {% block extra_scripts %}
@@ -266,7 +279,8 @@ function setDateRange(period) {
         }
     });
     
-    updateReportStatus(`Đã chọn khoảng thời gian: ${startDateStr} đến ${endDateStr}`, 'success');
+    //  updateReportStatus(`Đã chọn khoảng thời gian: ${startDateStr} đến ${endDateStr}`, 'success');
+    showToast(`Đã chọn khoảng thời gian: ${startDateStr} đến ${endDateStr}`, 'success');
 }
 
 function generateReport(reportType, format) {
@@ -352,5 +366,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     } catch (e) { /* ignore */ }
 });
+
+// --- Toast helper ---
+function showToast(message, type = 'info') {
+  // type: 'success' | 'danger' | 'warning' | 'info'
+  const toastEl = document.getElementById('reportToast');
+  const toastBody = document.getElementById('reportToastBody');
+
+  const map = {
+    success: {bg: 'bg-success', icon: 'fa-check-circle'},
+    danger:  {bg: 'bg-danger',  icon: 'fa-exclamation-triangle'},
+    warning: {bg: 'bg-warning text-dark', icon: 'fa-clock'},
+    info:    {bg: 'bg-primary', icon: 'fa-info-circle'}
+  };
+  const conf = map[type] || map.info;
+
+  // Reset class
+  toastEl.className = 'toast align-items-center text-white border-0 ' + conf.bg;
+
+  // Nội dung
+  toastBody.innerHTML = `<i class="fas ${conf.icon} me-2"></i>${message}`;
+
+  const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 2500 });
+  toast.show();
+}
+
+// function formatDate(date) {
+//     // format Date object → dd/mm/yyyy
+//     const d = date.getDate().toString().padStart(2, '0');
+//     const m = (date.getMonth() + 1).toString().padStart(2, '0');
+//     const y = date.getFullYear();
+//     return `${d}/${m}/${y}`;
+// }
 </script>
 {% endblock %}

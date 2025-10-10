@@ -121,7 +121,7 @@
 }
 
 .card-header {
-    background-color: var(--bs-light);
+    background-color: #9fcfffde;
     border-bottom: 1px solid var(--bs-border-color);
     border-radius: 8px 8px 0 0 !important;
 }
@@ -353,9 +353,9 @@ label {
 }
 
 .form-select {
-    color: #f8f9fa !important;
-    background-color: #495057 !important;
-    border-color: #6c757d !important;
+    color: #fffdfd !important;
+    background-color: #70adfd !important;
+    border-color: rgb(96, 104, 110) !important;
 }
 
 /* Badge colors for dark theme */

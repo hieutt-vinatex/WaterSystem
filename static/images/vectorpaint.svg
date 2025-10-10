@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect id="backgroundrect" width="100%" height="100%" x="0" y="0" fill="none" stroke="none"/>
+  <defs>
+    <style>
+      .zone { cursor: pointer; transition: all 0.3s ease; }
+      .zone:hover { opacity: 0.8; transform: scale(1.02); }
+      .zone-text { font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; text-anchor: middle; }
+      .flow-line { stroke: #2563eb; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+      .pipe { stroke: #6b7280; stroke-width: 4; fill: none; }
+      
+      /* Zone colors */
+      .wells-zone { fill: #3b82f6; }
+      .clean-plant-zone { fill: #06b6d4; }
+      .tanks-zone { fill: #6b7280; }
+      .customers-zone { fill: #10b981; }
+      .wastewater1-zone { fill: #f59e0b; }
+      .wastewater2-zone { fill: #ef4444; }
+    </style>
+    
+    <!-- Arrow marker for flow lines -->
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb" id="svg_1"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  
+  
+  <!-- Title -->
+  
+  
+  <!-- Wells Section (Left) -->
+  
+  
+  <!-- Clean Water Plant (Center-Left) -->
+  
+  
+  <!-- Water Tanks (Center) -->
+  
+  
+  <!-- Customers (Right) -->
+  
+  
+  <!-- Wastewater Plant 1 (Bottom-Left) -->
+  
+  
+  <!-- Wastewater Plant 2 (Bottom-Right) -->
+  
+  
+  <!-- External Water Supply -->
+  
+  
+  
+  <!-- Flow Lines -->
+  <!-- Wells to Clean Water Plant -->
+  
+  
+  <!-- Clean Water Plant to Tanks -->
+  
+  
+  <!-- External water to plant -->
+  
+  
+  <!-- Tanks to Customers -->
+  
+  
+  <!-- Customers to Wastewater Plants -->
+  
+  
+  
+  <!-- Pipes (decorative) -->
+  
+  
+  
+  <!-- Legend -->
+  
+<g class="currentLayer" style=""><title>Layer 1</title><rect width="800" height="600" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2" id="svg_2" class="" y="-2.0833332538604736" x="-5.5555548667907715"/><line x1="368.15464096621923" y1="119.59480468813965" x2="420.28569094329697" y2="88.316174701893" class="flow-line selected" id="svg_95" transform="rotate(-149.34765625 394.22015380859375,103.95549011230469) "/><line x1="350.2898254394531" y1="292.6253967285156" x2="394.8038635253906" y2="233.27334594726562" class="pipe" transform="rotate(53.51264572143555 372.5468444824219,262.94937133789057) " id="svg_94"/><path fill="#f8fafc" fill-opacity="1" stroke="#4141e8" stroke-opacity="1" stroke-width="2" stroke-dasharray="none" stroke-linejoin="miter" stroke-linecap="butt" stroke-dashoffset="" fill-rule="nonzero" opacity="1" marker-start="" marker-mid="" marker-end="" d="M327.1289635391154,256.08735113448904 L333.82494352255037,360.03915089965494 " class="" transform="rotate(3.7157416343688965 330.47695922851676,308.0632324218751) " id="svg_93"/><text x="400" y="30" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#1f2937" id="svg_3">
+    SƠ ĐỒ HỆ THỐNG CẤP THOÁT NƯỚC PHỐ NỐI
+  </text><g class="zone wells-zone" data-zone="wells" id="svg_4">
+    <rect x="34.02777862548828" y="63.63888931274414" width="120" height="140" rx="10" class="wells-zone" id="svg_5"/>
+    <text x="94.02777862548828" y="87.63888931274414" class="zone-text" fill="white" id="svg_6">GIẾNG KHOAN</text>
+    <text x="94.02777862548828" y="107.63888931274414" class="zone-text" fill="white" font-size="10" id="svg_7">(6 giếng)</text>
+    
+    <!-- Individual wells -->
+    <circle cx="64.02777862548828" cy="132.63888549804688" r="11" fill="white" id="svg_8"/>
+    <text x="64.02777862548828" y="136.63888931274414" text-anchor="middle" font-size="8" fill="#3b82f6" id="svg_9">GK1</text>
+    
+    <circle cx="94.02777862548828" cy="132.63888549804688" r="11" fill="white" id="svg_10"/>
+    <text x="94.02777862548828" y="136.63888931274414" text-anchor="middle" font-size="8" fill="#3b82f6" id="svg_11">GK2</text>
+    
+    <circle cx="124.02777862548828" cy="132.63888549804688" r="11" fill="white" id="svg_12"/>
+    <text x="124.02777862548828" y="136.63888931274414" text-anchor="middle" font-size="8" fill="#3b82f6" id="svg_13">GK3</text>
+    
+    <circle cx="64.02777862548828" cy="162.63888549804688" r="11" fill="white" id="svg_14"/>
+    <text x="64.02777862548828" y="166.63888931274414" text-anchor="middle" font-size="8" fill="#3b82f6" id="svg_15">GK5</text>
+    
+    <circle cx="94.02777862548828" cy="162.63888549804688" r="11" fill="white" id="svg_16"/>
+    <text x="94.02777862548828" y="166.63888931274414" text-anchor="middle" font-size="8" fill="#3b82f6" id="svg_17">5-TT</text>
+    
+    <circle cx="124.02777862548828" cy="162.63888549804688" r="11" fill="#fbbf24" id="svg_18"/>
+    <text x="124.02777862548828" y="166.63888931274414" text-anchor="middle" font-size="8" fill="#92400e" id="svg_19">GK6</text>
+
+    <!-- Nhà máy nước sạch  -->
+  </g><g class="zone clean-plant-zone" data-zone="clean-water-plant" id="svg_23">
+    <rect x="220" y="80" width="140" height="100" rx="10" class="clean-plant-zone" id="svg_24"/>
+    <text x="290" y="105" class="zone-text" fill="white" id="svg_25">NHÀ MÁY</text>
+    <text x="290" y="120" class="zone-text" fill="white" id="svg_26">NƯỚC SẠCH</text>
+    <text x="290" y="145" class="zone-text" fill="white" font-size="10" id="svg_29">Điện, PAC, Xút</text>
+    <text x="290" y="160" class="zone-text" fill="white" font-size="10" id="svg_30">Polymer</text>
+
+    <!-- Bể chứa  -->
+  </g><g class="zone tanks-zone" data-zone="tanks" id="svg_31">
+    <rect x="217.6388702392578" y="351.25" width="140" height="100" rx="10" class="tanks-zone" id="svg_32"/>
+    <text x="287.6388895511627" y="376.24999952316284" class="zone-text" fill="white" id="svg_33">BỂ CHỨA</text>
+    <text x="287.6388895511627" y="396.24999952316284" class="zone-text" fill="white" font-size="10" id="svg_34">Bể 1200 m³</text>
+    <text x="287.6388895511627" y="411.24999952316284" class="zone-text" fill="white" font-size="10" id="svg_35">Bể 2000 m³</text>
+    <text x="287.6388895511627" y="426.24999952316284" class="zone-text" fill="white" font-size="10" id="svg_36">Bể 4000 m³</text>
+
+    <!--  Khách hàng  -->
+  </g><g class="zone customers-zone" data-zone="customers" id="svg_37">
+    <rect x="433.8888854980469" y="125.69444274902344" width="133.05555725097656" height="153.05555725097656" rx="10" class="customers-zone" id="svg_38"/>
+    <text x="504.25133317360473" y="150.97801932755243" class="zone-text" fill="white" id="svg_39" transform="matrix(0.9503968358039856,0,0,0.9565972089767456,21.1777960531399,5.184222187524938) ">KHÁCH HÀNG</text>
+    <text x="504.25133317360473" y="175" class="zone-text" fill="white" font-size="10" id="svg_41" transform="matrix(0.9503968358039856,0,0,0.9565972089767456,21.1777960531399,5.184222187524938) ">Đồng hồ NS/NT</text>
+    
+    <!-- Major customers -->
+    <rect x="448.14483642578125" y="202.2222137451172" width="104.54365539550781" height="14.348958015441895" rx="3" fill="#dcfce7" id="svg_42"/>
+    <text x="504.25133317360473" y="215.97801932755243" text-anchor="middle" font-size="8" fill="#166534" id="svg_43" transform="matrix(0.9503968358039856,0,0,0.9565972089767456,21.1777960531399,5.184222187524938) ">Jasan (hàng ngày)</text>
+    
+    <rect x="448.14483642578125" y="221.35415649414062" width="104.54365539550781" height="14.348958015441895" rx="3" fill="#dcfce7" id="svg_44"/>
+    <text x="504.25133317360473" y="235.97801932755243" text-anchor="middle" font-size="8" fill="#166534" id="svg_45" transform="matrix(0.9503968358039856,0,0,0.9565972089767456,21.1777960531399,5.184222187524938) ">Nhuộm HY</text>
+
+    <!-- Nhà máy nước thải 1 -->
+  </g><g class="zone wastewater1-zone" data-zone="wastewater-plant-1" id="svg_48">
+    <rect x="401.25" y="419.77777099609375" width="140" height="90" rx="10" class="wastewater1-zone" id="svg_49"/>
+    <text x="471.24999046325684" y="447.7777774333954" class="zone-text" fill="white" id="svg_50">NHÀ MÁY</text>
+    <text x="471.24999046325684" y="462.7777774333954" class="zone-text" fill="white" id="svg_51">NƯỚC THẢI 1</text>
+    <text x="471.24999046325684" y="490.7777774333954" class="zone-text" fill="white" font-size="10" id="svg_54">TQT, Bùn, Điện</text>
+
+    <!-- Nhà máy nước thải 2 -->
+  </g><g class="zone wastewater2-zone" data-zone="wastewater-plant-2" id="svg_55">
+    <rect x="610.4166870117188" y="319.02777099609375" width="140" height="100" rx="10" class="wastewater2-zone" id="svg_56"/>
+    <text x="680.4166643619537" y="344.0277769565582" class="zone-text" fill="white" id="svg_57">NHÀ MÁY</text>
+    <text x="680.4166643619537" y="359.0277769565582" class="zone-text" fill="white" id="svg_58">NƯỚC THẢI 2</text>
+    <text x="680.4166643619537" y="390.0277769565582" class="zone-text" fill="white" font-size="10" id="svg_61">TQT, Bùn, Điện</text>
+    <text x="680.4166643619537" y="410.0277769565582" class="zone-text" fill="white" font-size="10" id="svg_62">Hóa chất</text>
+    
+  </g><rect x="425.5555419921875" y="92.78460693359375" width="92.5" height="20.69444465637207" rx="5" fill="#fbbf24" id="svg_63" class=""/><text x="471.1111068725586" y="107.173495054245" text-anchor="middle" font-size="10" fill="#92400e" id="svg_64" class="">Jasan 800-1000m³</text><line x1="158.20204162597656" y1="158.82675170898438" x2="212.6952667236328" y2="126.13081359863281" class="flow-line" id="svg_65" transform="rotate(31.63262939453125 185.4486541748047,142.47877502441406) "/><line x1="350.9721984863281" y1="297.361083984375" x2="410.9721984863281" y2="217.36111450195312" class="flow-line" id="svg_68" transform="rotate(53.130104064941406 380.9722290039062,257.361083984375) "/><line x1="534.3409423828125" y1="322.5323791503906" x2="407.1618347167969" y2="374.4148864746094" class="flow-line" id="svg_69" transform="rotate(-67.66842651367188 470.7514038085937,348.4736328125) "/><line x1="563.29736328125" y1="317.76531982421875" x2="558.2891845703125" y2="408.94451904296875" class="flow-line" id="svg_70" transform="rotate(-90.99132537841797 560.7932739257812,363.35491943359375) "/><line x1="155.85821533203125" y1="147.56414794921875" x2="188.27537536621094" y2="128.69468688964844" class="pipe" id="svg_71" transform="rotate(31.15999984741211 172.06678771972656,138.12940979003906) "/><line x1="306.1094665527344" y1="349.8152770996094" x2="365.5511169433594" y2="270.5597229003906" class="pipe" id="svg_72" transform="rotate(-36.49869918823242 335.8302917480468,310.18749999999994) "/><g id="svg_73">
+    <rect x="600" y="80" width="180" height="220" fill="white" stroke="#e2e8f0" stroke-width="1" rx="5" id="svg_74"/>
+    <text x="690" y="100" text-anchor="middle" font-size="12" font-weight="bold" fill="#1f2937" id="svg_75">CHÚ THÍCH</text>
+    
+    <circle cx="615" cy="120" r="5" class="wells-zone" id="svg_76"/>
+    <text x="630" y="125" font-size="10" fill="#1f2937" id="svg_77">Giếng khoan</text>
+    
+    <circle cx="615" cy="140" r="5" class="clean-plant-zone" id="svg_78"/>
+    <text x="630" y="145" font-size="10" fill="#1f2937" id="svg_79">Nhà máy nước sạch</text>
+    
+    <circle cx="615" cy="160" r="5" class="tanks-zone" id="svg_80"/>
+    <text x="630" y="165" font-size="10" fill="#1f2937" id="svg_81">Bể chứa</text>
+    
+    <circle cx="615" cy="180" r="5" class="customers-zone" id="svg_82"/>
+    <text x="630" y="185" font-size="10" fill="#1f2937" id="svg_83">Khách hàng</text>
+    
+    <circle cx="615" cy="200" r="5" class="wastewater1-zone" id="svg_84"/>
+    <text x="630" y="205" font-size="10" fill="#1f2937" id="svg_85">NMNT số 1</text>
+    
+    <circle cx="615" cy="220" r="5" class="wastewater2-zone" id="svg_86"/>
+    <text x="630" y="225" font-size="10" fill="#1f2937" id="svg_87">NMNT số 2</text>
+    
+    <line x1="615" y1="245" x2="635" y2="245" class="flow-line" id="svg_88"/>
+    <text x="640" y="249" font-size="10" fill="#1f2937" id="svg_89">Dòng chảy</text>
+    
+    <text x="690" y="270" text-anchor="middle" font-size="9" fill="#6b7280" id="svg_90">Click vào khu vực</text>
+    <text x="690" y="282" text-anchor="middle" font-size="9" fill="#6b7280" id="svg_91">để nhập dữ liệu</text>
+  </g><path fill="#6767e7" fill-opacity="1" stroke="#4141e8" stroke-opacity="1" stroke-width="3" stroke-dasharray="none" stroke-linejoin="miter" stroke-linecap="butt" stroke-dashoffset="" fill-rule="nonzero" opacity="1" marker-start="" marker-mid="" marker-end="" d="M512.5199513039225,279.2924088471492 L517.0482423415561,361.9663840474777 " id="svg_92" class="" transform="rotate(2.629497528076172 514.7841186523434,320.6293945312504) "/></g></svg>
