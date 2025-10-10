@@ -52,9 +52,7 @@ def kpi_data():
 # tính sản lượng theo ngày
 def _get_daily_production(today, yesterday):
     clean_without_jasan = _clean_water_without_jasan(today)
-    today_jasan = db.session.query(
-        db.func.sum(CleanWaterPlant.raw_water_jasan)
-    ).filter(CleanWaterPlant.date == today).scalar() or 0
+    today_jasan = _get_today_jasan(today)
 
     inventory_yesterday = _get_tank_inventory_yesterday(yesterday)
     inventory_today = _get_tank_inventory_today(today)
@@ -68,8 +66,13 @@ def _clean_water_without_jasan(today):
     return float(production_today)
 
 
+def _get_today_jasan(today):
+    return db.session.query(
+        db.func.sum(CleanWaterPlant.raw_water_jasan)
+    ).filter(CleanWaterPlant.date == today).scalar() or 0
+
 def _clean_water_production_today(today):
-    # Lấy tổng production của ngày hôm nay
+    # Lấy tổng production của giếng ngày hôm nay
     cur_sum = db.session.query(
         db.func.sum(WellProduction.production)
     ).filter(WellProduction.date == today).scalar() or 0
@@ -468,8 +471,9 @@ def generate_clean_water_details(start_date, end_date):
     # Generate chart series using _get_daily_production for each day
     data = []
     for d in dates:
-        daily_val = _get_daily_production(d, d - timedelta(days=1))
-        data.append(float(daily_val))
+        daily_val = _clean_water_production_today(d)
+        daily_jasan = _get_today_jasan(d)
+        data.append(float(daily_val + daily_jasan))
     # Hiển thị trên chart: nếu giá trị âm thì = 0
     data = [v if v >= 0 else 0 for v in data]
     
