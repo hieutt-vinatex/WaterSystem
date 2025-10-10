@@ -184,9 +184,13 @@ def dashboard_data():
                 val = 0.0
             well_series.append({'date': str(d), 'production': val})
         # well_series = [v if v >= 0 else 0 for v in well_series]
-        clean_water_data = CleanWaterPlant.query.filter(
-            CleanWaterPlant.date >= start_date, CleanWaterPlant.date <= end_date
-        ).all()
+        # Sản lượng nước sạch theo ngày dùng _get_daily_production, clamp <0 thành 0
+        clean_water_series = []
+        for d in dates:
+            daily_val = float(_get_daily_production(d, d - timedelta(days=1)))
+            if daily_val < 0:
+                daily_val = 0.0
+            clean_water_series.append({'date': str(d), 'output': daily_val})
         wastewater_data = db.session.query(
             WastewaterPlant.date,
             db.func.sum(WastewaterPlant.input_flow_tqt).label('total_input'),
@@ -204,14 +208,7 @@ def dashboard_data():
          .group_by(CustomerReading.date).all()
         return jsonify({
             'well_production': well_series,
-            # Total = clean_water_output + raw_water_jasan for consistency with details page
-            'clean_water': [
-                {
-                    'date': str(d.date),
-                    'output': float((d.clean_water_output or 0)) + float((d.raw_water_jasan or 0))
-                }
-                for d in clean_water_data
-            ],
+            'clean_water': clean_water_series,
             'wastewater': [{'date': str(d.date), 'input': float(d.total_input or 0), 'output': float(d.total_output or 0)} for d in wastewater_data],
             'customer_consumption': [{'date': str(d.date), 'clean_water': float(d.total_clean_water or 0), 'wastewater': float(d.total_wastewater or 0)} for d in customer_data]
         })
@@ -321,7 +318,7 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
         cur += timedelta(days=1)
 
     if aggregate:
-        # 1) Tổng sản lượng theo ngày: dùng _get_daily_production để đảm bảo cùng logic KPI
+        # 1) Tổng sản lượng theo ngày:
         total_series = []
         for d in dates:
             total_series.append(_clean_water_production_today(d))
@@ -462,22 +459,19 @@ def generate_clean_water_details(start_date, end_date):
         dates.append(cur)
         cur += timedelta(days=1)
     
-    # Query clean water plant data from database
+    # Query clean water plant data for table breakdown
     query = CleanWaterPlant.query.filter(
         CleanWaterPlant.date >= start_date,
         CleanWaterPlant.date <= end_date
     ).order_by(CleanWaterPlant.date).all()
-    
-    # Create data map from query results - sum of clean_water_output + raw_water_jasan
-    data_map = {}
-    for record in query:
-        clean_output = float(record.clean_water_output or 0)
-        raw_jasan = float(record.raw_water_jasan or 0)
-        total_water = clean_output + raw_jasan
-        data_map[record.date] = total_water
-    
-    # Generate data series for all dates in range
-    data = [data_map.get(d, 0.0) for d in dates]
+
+    # Generate chart series using _get_daily_production for each day
+    data = []
+    for d in dates:
+        daily_val = _get_daily_production(d, d - timedelta(days=1))
+        data.append(float(daily_val))
+    # Hiển thị trên chart: nếu giá trị âm thì = 0
+    data = [v if v >= 0 else 0 for v in data]
     
     # Calculate summary statistics
     non_zero_data = [v for v in data if v > 0]
@@ -492,7 +486,7 @@ def generate_clean_water_details(start_date, end_date):
     chart_data = {
         'labels': [d.strftime('%d/%m') for d in dates],
         'datasets': [{
-            'label': 'Tổng nước sạch (Sản xuất + Jasan) (m³)',
+            'label': 'Sản lượng nước sạch theo ngày (m³)',
             'data': data,
             'backgroundColor': 'rgba(75, 192, 192, 0.6)',
             'borderColor': 'rgb(75, 192, 192)',
@@ -519,12 +513,15 @@ def generate_clean_water_details(start_date, end_date):
             clean_output = 0
             raw_jasan = 0
             total = 0
+        # Also include the computed daily production used for chart
+        daily_val = float(_get_daily_production(d, d - timedelta(days=1)))
             
         table_data.append({
             'date': d.strftime('%d/%m/%Y'),
             'clean_water_output': clean_output,
             'raw_water_jasan': raw_jasan,
-            'total_water': total
+            'total_water': total,
+            'daily_production': daily_val
         })
     
     return {
