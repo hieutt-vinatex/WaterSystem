@@ -2,6 +2,85 @@
 
 {% block title %}Quản trị hệ thống - Hệ thống quản lý nước Phố Nối{% endblock %}
 
+{% block extra_head %}
+<style>
+    .stat-card {
+        border: none;
+        border-radius: 14px;
+        padding: .9rem 1.25rem;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, .06);
+        transition: transform .2s, box-shadow .2s;
+        text-align: left;
+        /* 👈 canh trái toàn nội dung */
+        min-height: 92px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, .08);
+    }
+
+    /* Pastel màu nền */
+    .stat-card.users {
+        background: #edf3ff;
+        color: #0d47a1;
+    }
+
+    .stat-card.customers {
+        background: #fff8e6;
+        color: #b36b00;
+    }
+
+    .stat-card.wells {
+        background: #edfff1;
+        color: #1b5e20;
+    }
+
+    .stat-card.tanks {
+        background: #ffeaf1;
+        color: #ad1457;
+    }
+
+    /* Hàng icon + số */
+    .stat-top {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        /* cột 1: icon | cột 2: vùng linh hoạt */
+        align-items: center;
+        column-gap: .9rem;
+        /* khoảng cách nhỏ gọn giữa icon và số */
+    }
+
+    .stat-icon {
+        font-size: clamp(18px, 2.2vw, 22px);
+        opacity: 0.9;
+        margin: 0;
+    }
+
+    .stat-value {
+        font-size: clamp(24px, 3.2vw, 36px);
+        font-weight: 700;
+        line-height: 1;
+        justify-self: right;
+    }
+
+    .stat-label {
+        font-size: .9rem;
+        font-weight: 600;
+        opacity: .9;
+        margin-top: .2rem;
+        text-align: left;
+        /* sát hơn và canh giữa dưới số */
+    }
+</style>
+
+
+{% endblock %}
+
+
 {% block content %}
 <div class="row">
     <div class="col-12">
@@ -13,318 +92,117 @@
 <!-- Navigation Tabs -->
 <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
     <li class="nav-item" role="presentation">
-        <button class="nav-link {% if active_tab=='users' %}active{% endif %}" id="users-tab"
-                data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
+        <button class="nav-link {% if active_tab=='users' %}active{% endif %}" id="users-tab" data-bs-toggle="tab"
+            data-bs-target="#users" type="button" role="tab">
             <i class="fas fa-users me-2"></i>Người dùng
         </button>
     </li>
     <li class="nav-item" role="presentation">
         <button class="nav-link {% if active_tab=='customers' %}active{% endif %}" id="customers-tab"
-                data-bs-toggle="tab" data-bs-target="#customers" type="button" role="tab">
+            data-bs-toggle="tab" data-bs-target="#customers" type="button" role="tab">
             <i class="fas fa-building me-2"></i>Khách hàng
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link {% if active_tab=='wells' %}active{% endif %}" id="wells-tab"
-                data-bs-toggle="tab" data-bs-target="#wells" type="button" role="tab">
+        <button class="nav-link {% if active_tab=='wells' %}active{% endif %}" id="wells-tab" data-bs-toggle="tab"
+            data-bs-target="#wells" type="button" role="tab">
             <i class="fas fa-water me-2"></i>Giếng khoan
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link {% if active_tab=='tanks' %}active{% endif %}" id="tanks-tab"
-                data-bs-toggle="tab" data-bs-target="#tanks" type="button" role="tab">
+        <button class="nav-link {% if active_tab=='tanks' %}active{% endif %}" id="tanks-tab" data-bs-toggle="tab"
+            data-bs-target="#tanks" type="button" role="tab">
             <i class="fas fa-database me-2"></i>Bể chứa
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link {% if active_tab=='settings' %}active{% endif %}" id="settings-tab"
-                data-bs-toggle="tab" data-bs-target="#settings" type="button" role="tab">
+        <button class="nav-link {% if active_tab=='settings' %}active{% endif %}" id="settings-tab" data-bs-toggle="tab"
+            data-bs-target="#settings" type="button" role="tab">
             <i class="fas fa-cog me-2"></i>Cấu hình
         </button>
     </li>
 </ul>
 
 <div class="tab-content" id="adminTabsContent">
-    <!-- Users Tab -->
-     <div class="tab-pane fade {% if active_tab=='users' %}show active{% endif %}" id="users" role="tabpanel">
+
+    <!-- ====================== System Statistics ====================== -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="section-title">
+                <!-- <span class="title-ico"><i class="fas fa-chart-bar"></i></span> -->
+                <!-- <span>Thống kê hệ thống</span> -->
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="row g-3 row-cols-2 row-cols-md-4">
+                <div class="col">
+                    <div class="stat-card users h-100">
+                        <div class="stat-top">
+                            <span class="stat-icon"><i class="fas fa-user"></i></span>
+                            <span class="stat-value">{{ users|length }}</span>
+                        </div>
+                        <div class="stat-label">Người dùng</div>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="stat-card customers h-100">
+                        <div class="stat-top">
+                            <span class="stat-icon"><i class="fas fa-building"></i></span>
+                            <span class="stat-value">{{ customers|length }}</span>
+                        </div>
+                        <div class="stat-label">Khách hàng</div>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="stat-card wells h-100">
+                        <div class="stat-top">
+                            <span class="stat-icon"><i class="fas fa-water"></i></span>
+                            <span class="stat-value">{{ wells|length }}</span>
+                        </div>
+                        <div class="stat-label">Giếng khoan</div>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="stat-card tanks h-100">
+                        <div class="stat-top">
+                            <span class="stat-icon"><i class="fas fa-database"></i></span>
+                            <span class="stat-value">{{ tanks|length }}</span>
+                        </div>
+                        <div class="stat-label">Bể chứa</div>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <hr class="my-4">
+
+    <!-- ====================== Users Tab ====================== -->
+    <div class="tab-pane fade {% if active_tab=='users' %}show active{% endif %}" id="users" role="tabpanel">
         {% include 'admin/user.html' %}
     </div>
-    <!-- <div class="tab-pane fade {% if active_tab=='users' %}show active{% endif %}" id="users" role="tabpanel">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-users me-2"></i>Quản lý người dùng</h5>
-                <button class="btn btn-primary btn-sm" data-bs-target="#addUserModal">
-                    <i class="fas fa-plus me-2"></i>Thêm người dùng
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Tên đăng nhập</th>
-                                <th>Họ tên</th>
-                                <th>Email</th>
-                                <th>Vai trò</th>
-                                <th>Trạng thái</th>
-                                <th>Ngày tạo</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for user in users %}
-                            <tr>
-                                <td>{{ user.id }}</td>
-                                <td><strong>{{ user.username }}</strong></td>
-                                <td>{{ user.full_name or '-' }}</td>
-                                <td>{{ user.email }}</td>
-                                <td>
-                                    <span class="badge bg-{% if user.role.value == 'admin' %}danger{% elif user.role.value == 'leadership' %}primary{% elif user.role.value == 'plant_manager' %}warning{% elif user.role.value == 'accounting' %}info{% else %}secondary{% endif %}">
-                                        {{ user.role.value.replace('_', ' ').title() }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if user.is_active %}
-                                    <span class="badge bg-success">Hoạt động</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">Vô hiệu</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else '-' }}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    {% if user.id != current_user.id %}
-                                    <button class="btn btn-sm btn-outline-warning" title="Khóa/Mở khóa">
-                                        <i class="fas fa-lock"></i>
-                                    </button>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div> -->
-    
-    <!-- Customers Tab -->
-    <!-- <div class="tab-pane fade" id="customers" role="tabpanel">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-building me-2"></i>Quản lý khách hàng</h5>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
-                <a class="btn btn-primary btn-sm" href="{{ url_for('new_customer') }}">
-                    <i class="fas fa-plus me-2"></i>Thêm khách hàng
-                </a>
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <input type="text" class="form-control" id="customer-search-admin" placeholder="Tìm kiếm khách hàng...">
-                    </div>
-                    <div class="col-md-3">
-                        <select class="form-select" id="customer-filter-admin">
-                            <option value="">Tất cả</option>
-                            <option value="active">Hoạt động</option>
-                            <option value="inactive">Ngưng hoạt động</option>
-                            <option value="daily">Đọc số hàng ngày</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-muted">
-                            Tổng: {{ customers|length }} khách hàng
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Công ty</th>
-                                <th>Người liên hệ</th>
-                                <th>Điện thoại</th>
-                                <th>Email</th>
-                                <th>Tỷ lệ NT/NS</th>
-                                <th>Loại đọc số</th>
-                                <th>Trạng thái</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="customers-table-body">
-                            {% for customer in customers %}
-                            <tr class="customer-admin-row" data-status="{{ 'active' if customer.is_active else 'inactive' }}" data-reading="{{ 'daily' if customer.daily_reading else 'monthly' }}">
-                                <td>{{ customer.id }}</td>
-                                <td><strong>{{ customer.company_name }}</strong></td>
-                                <td>{{ customer.contact_person or '-' }}</td>
-                                <td>{{ customer.phone or '-' }}</td>
-                                <td>{{ customer.email or '-' }}</td>
-                                <td>{{ "%.2f"|format(customer.water_ratio) }}</td>
-                                <td>
-                                    {% if customer.daily_reading %}
-                                    <span class="badge bg-warning">Hàng ngày</span>
-                                    {% else %}
-                                    <span class="badge bg-info">Hàng tháng</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if customer.is_active %}
-                                    <span class="badge bg-success">Hoạt động</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">Ngưng</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <a class="btn btn-sm btn-outline-primary btn-edit-customer" title="Chỉnh sửa"
-                                       href="/customers/{{ customer.id }}/edit" role="button" aria-label="Chỉnh sửa khách hàng {{ customer.id }}">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <button class="btn btn-sm btn-outline-info" title="Xem lịch sử">
-                                        <i class="fas fa-history"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div> -->
 
+    <!-- ====================== Customers Tab ====================== -->
     <div class="tab-pane fade {% if active_tab=='customers' %}show active{% endif %}" id="customers" role="tabpanel">
         {% include 'admin/customer.html' %}
     </div>
-    
-    <!-- Wells Tab -->
 
+    <!-- ====================== Wells Tab ====================== -->
     <div class="tab-pane fade {% if active_tab=='wells' %}show active{% endif %}" id="wells" role="tabpanel">
         {% include 'admin/well.html' %}
     </div>
-    <!-- <div class="tab-pane fade {% if active_tab=='wells' %}show active{% endif %}" id="wells" role="tabpanel">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-water me-2"></i>Quản lý giếng khoan</h5>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addWellModal">
-                    <i class="fas fa-plus me-2"></i>Thêm giếng khoan
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Mã giếng</th>
-                                <th>Tên giếng</th>
-                                <th>Công suất (m³/ngày)</th>
-                                <th>Loại</th>
-                                <th>Trạng thái</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for well in wells %}
-                            <tr>
-                                <td>{{ well.id }}</td>
-                                <td><strong>{{ well.code }}</strong></td>
-                                <td>{{ well.name }}</td>
-                                <td>{{ "%.0f"|format(well.capacity or 0) }}</td>
-                                <td>
-                                    {% if well.is_backup %}
-                                    <span class="badge bg-warning">Dự phòng</span>
-                                    {% else %}
-                                    <span class="badge bg-primary">Chính</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if well.is_active %}
-                                    <span class="badge bg-success">Hoạt động</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">Ngưng</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-info" title="Xem sản lượng">
-                                        <i class="fas fa-chart-line"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div> -->
-    
-    <!-- Tanks Tab -->
+
+    <!-- ====================== Tanks Tab ====================== -->
     <div class="tab-pane fade {% if active_tab=='tanks' %}show active{% endif %}" id="tanks" role="tabpanel">
         {% include 'admin/water_tank.html' %}
     </div>
-    <!-- <div class="tab-pane fade {% if active_tab=='tanks' %}show active{% endif %}" id="tanks" role="tabpanel">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-database me-2"></i>Quản lý bể chứa</h5>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTankModal">
-                    <i class="fas fa-plus me-2"></i>Thêm bể chứa
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Tên bể</th>
-                                <th>Dung tích (m³)</th>
-                                <th>Loại</th>
-                                <th>Mức hiện tại</th>
-                                <th>Tỷ lệ đầy (%)</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for tank in tanks %}
-                            <tr>
-                                <td>{{ tank.id }}</td>
-                                <td><strong>{{ tank.name }}</strong></td>
-                                <td>{{ "%.0f"|format(tank.capacity or 0) }}</td>
-                                <td>
-                                    {% if tank.tank_type == 'clean_water' %}
-                                    <span class="badge bg-info">Nước sạch</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">Nước thô</span>
-                                    {% endif %}
-                                </td>
-                                <td>-</td>
-                                <td>-</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-info" title="Xem lịch sử mức nước">
-                                        <i class="fas fa-chart-area"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div> -->
-    
+
     <!-- Settings Tab -->
     <div class="tab-pane fade {% if active_tab=='settings' %}show active{% endif %}" id="settings" role="tabpanel">
         <div class="row">
@@ -449,131 +327,95 @@
     </div>
 </div>
 
-<!-- System Statistics -->
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h6><i class="fas fa-chart-bar me-2"></i>Thống kê hệ thống</h6>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <h4 class="text-primary">{{ users|length }}</h4>
-                            <p class="text-muted mb-0">Người dùng</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <h4 class="text-info">{{ customers|length }}</h4>
-                            <p class="text-muted mb-0">Khách hàng</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <h4 class="text-warning">{{ wells|length }}</h4>
-                            <p class="text-muted mb-0">Giếng khoan</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <h4 class="text-success">{{ tanks|length }}</h4>
-                            <p class="text-muted mb-0">Bể chứa</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+
+
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-// ----- Users tab: unified filter (search + role + status) -----
-(function(){
-  const userSearchEl = document.getElementById('user-search-admin');
-  const userRoleEl = document.getElementById('user-filter-role');
-  const userStatusEl = document.getElementById('user-filter-status');
+    // ----- Users tab: unified filter (search + role + status) -----
+    (function () {
+        const userSearchEl = document.getElementById('user-search-admin');
+        const userRoleEl = document.getElementById('user-filter-role');
+        const userStatusEl = document.getElementById('user-filter-status');
 
-  function applyUserFilters() {
-    const rows = document.querySelectorAll('.user-admin-row');
-    if (!rows.length) return;
-    const searchTerm = (userSearchEl && userSearchEl.value ? userSearchEl.value.toLowerCase() : '');
-    const roleVal = (userRoleEl && userRoleEl.value) || '';
-    const statusVal = (userStatusEl && userStatusEl.value) || '';
+        function applyUserFilters() {
+            const rows = document.querySelectorAll('.user-admin-row');
+            if (!rows.length) return;
+            const searchTerm = (userSearchEl && userSearchEl.value ? userSearchEl.value.toLowerCase() : '');
+            const roleVal = (userRoleEl && userRoleEl.value) || '';
+            const statusVal = (userStatusEl && userStatusEl.value) || '';
 
-    rows.forEach(row => {
-      const username = (row.cells[1]?.textContent || '').toLowerCase();
-      const fullName = (row.cells[2]?.textContent || '').toLowerCase();
-      const matchesSearch = !searchTerm || username.includes(searchTerm) || fullName.includes(searchTerm);
-      const matchesRole = !roleVal || (row.dataset.role === roleVal);
-      const matchesStatus = !statusVal || (row.dataset.status === statusVal);
-      row.style.display = (matchesSearch && matchesRole && matchesStatus) ? '' : 'none';
-    });
-  }
-
-  if (userSearchEl) userSearchEl.addEventListener('input', applyUserFilters);
-  if (userRoleEl) userRoleEl.addEventListener('change', applyUserFilters);
-  if (userStatusEl) userStatusEl.addEventListener('change', applyUserFilters);
-
-  // Run once on load to normalize
-  applyUserFilters();
-})();
-
-// Customer search and filter functionality
-document.getElementById('customer-search-admin').addEventListener('input', function() {
-    const searchTerm = this.value.toLowerCase();
-    const rows = document.querySelectorAll('.customer-admin-row');
-    
-    rows.forEach(row => {
-        const companyName = row.cells[1].textContent.toLowerCase();
-        const contactPerson = row.cells[2].textContent.toLowerCase();
-        if (companyName.includes(searchTerm) || contactPerson.includes(searchTerm)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
+            rows.forEach(row => {
+                const username = (row.cells[1]?.textContent || '').toLowerCase();
+                const fullName = (row.cells[2]?.textContent || '').toLowerCase();
+                const matchesSearch = !searchTerm || username.includes(searchTerm) || fullName.includes(searchTerm);
+                const matchesRole = !roleVal || (row.dataset.role === roleVal);
+                const matchesStatus = !statusVal || (row.dataset.status === statusVal);
+                row.style.display = (matchesSearch && matchesRole && matchesStatus) ? '' : 'none';
+            });
         }
-    });
-});
 
-document.getElementById('customer-filter-admin').addEventListener('change', function() {
-    const filterValue = this.value;
-    const rows = document.querySelectorAll('.customer-admin-row');
-    
-    rows.forEach(row => {
-        if (filterValue === '') {
-            row.style.display = '';
-        } else if (filterValue === 'active' && row.dataset.status === 'active') {
-            row.style.display = '';
-        } else if (filterValue === 'inactive' && row.dataset.status === 'inactive') {
-            row.style.display = '';
-        } else if (filterValue === 'daily' && row.dataset.reading === 'daily') {
-            row.style.display = '';
-        } else if (filterValue === 'monthly' && row.dataset.reading === 'monthly') {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-});
+        if (userSearchEl) userSearchEl.addEventListener('input', applyUserFilters);
+        if (userRoleEl) userRoleEl.addEventListener('change', applyUserFilters);
+        if (userStatusEl) userStatusEl.addEventListener('change', applyUserFilters);
 
-// document.addEventListener('DOMContentLoaded', function () {
-//   // Mặc định kích hoạt tab Users nếu không có hash
-//   const defaultTabBtn = document.getElementById('users-tab');
-//   if (defaultTabBtn && !window.location.hash) {
-//     new bootstrap.Tab(defaultTabBtn).show();
-//   }
-//   const hash = window.location.hash;
-//   if (hash === '#customers') {
-//     const btn = document.getElementById('customers-tab');
-//     if (btn) {
-//       new bootstrap.Tab(btn).show();
-//       window.scrollTo({top:0, left:0, behavior:'auto'});
-//     }
-//   }
-// });
+        // Run once on load to normalize
+        applyUserFilters();
+    })();
+
+    // Customer search and filter functionality
+    document.getElementById('customer-search-admin').addEventListener('input', function () {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('.customer-admin-row');
+
+        rows.forEach(row => {
+            const companyName = row.cells[1].textContent.toLowerCase();
+            const contactPerson = row.cells[2].textContent.toLowerCase();
+            if (companyName.includes(searchTerm) || contactPerson.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    document.getElementById('customer-filter-admin').addEventListener('change', function () {
+        const filterValue = this.value;
+        const rows = document.querySelectorAll('.customer-admin-row');
+
+        rows.forEach(row => {
+            if (filterValue === '') {
+                row.style.display = '';
+            } else if (filterValue === 'active' && row.dataset.status === 'active') {
+                row.style.display = '';
+            } else if (filterValue === 'inactive' && row.dataset.status === 'inactive') {
+                row.style.display = '';
+            } else if (filterValue === 'daily' && row.dataset.reading === 'daily') {
+                row.style.display = '';
+            } else if (filterValue === 'monthly' && row.dataset.reading === 'monthly') {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    // document.addEventListener('DOMContentLoaded', function () {
+    //   // Mặc định kích hoạt tab Users nếu không có hash
+    //   const defaultTabBtn = document.getElementById('users-tab');
+    //   if (defaultTabBtn && !window.location.hash) {
+    //     new bootstrap.Tab(defaultTabBtn).show();
+    //   }
+    //   const hash = window.location.hash;
+    //   if (hash === '#customers') {
+    //     const btn = document.getElementById('customers-tab');
+    //     if (btn) {
+    //       new bootstrap.Tab(btn).show();
+    //       window.scrollTo({top:0, left:0, behavior:'auto'});
+    //     }
+    //   }
+    // });
 
 </script>
 {% endblock %}

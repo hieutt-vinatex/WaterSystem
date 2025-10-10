@@ -30,9 +30,7 @@
       </div>
     </div>
 
-    <div class="text-muted mb-2">
-      Tổng: {{ users|length if users is defined else 0 }} người dùng
-    </div>
+    
 
     <div class="table-responsive">
       <table class="table table-striped">
@@ -99,6 +97,9 @@
           {% endfor %}
         </tbody>
       </table>
+      <div class="mb-2" style="font-style: italic">
+      Tổng: {{ users|length if users is defined else 0 }} người dùng
+    </div>
     </div>
   </div>
 </div>

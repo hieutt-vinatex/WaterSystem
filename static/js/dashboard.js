@@ -57,7 +57,7 @@ function loadSystemDiagram() {
     if (!diagramContainer) return;
 
     // Load the SVG diagram
-    fetch('/static/images/water_system_diagram.svg')
+    fetch('/static/images/vectorpaint.svg')
         .then(response => response.text())
         .then(svgContent => {
             diagramContainer.innerHTML = svgContent;
