@@ -417,6 +417,14 @@ function formatDate(dateString) {
     });
 }
 
+// Format a Date to YYYY-MM-DD for input[type="date"] using local time (avoid UTC toISOString shift)
+function toInputDate(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function formatNumber(num) {
     return new Intl.NumberFormat('vi-VN').format(Math.round(num));
 }
@@ -454,12 +462,53 @@ function setupChartInteractions() {
     const periodSelect = document.getElementById('chart-period');
     if (periodSelect) {
         periodSelect.addEventListener('change', function() {
+            const endDateInput = document.getElementById('chart-end-date');
+            const startDateInput = document.getElementById('chart-start-date');
+
+            if (this.value === 'custom') {
+                // For custom range, just ensure inputs have sane defaults and constraints.
+                const today = new Date();
+                const endStr = toInputDate(today);
+                // Default start to 30 days ago if empty
+                const defaultStart = new Date(today);
+                defaultStart.setDate(today.getDate() - 30);
+                const startStr = toInputDate(defaultStart);
+
+                if (startDateInput) {
+                    if (!startDateInput.value) startDateInput.value = startStr;
+                    startDateInput.max = endStr;
+                }
+                if (endDateInput) {
+                    if (!endDateInput.value) endDateInput.value = endStr;
+                    endDateInput.min = startDateInput ? startDateInput.value : '';
+                    endDateInput.max = endStr;
+                }
+                // Do not auto-fetch; wait for user to click update
+                return;
+            }
+
             const period = parseInt(this.value);
+            // Auto-fetch for numeric presets
             updateChartsWithDateRange(period);
 
-            // Clear custom date range
-            document.getElementById('chart-start-date').value = '';
-            document.getElementById('chart-end-date').value = '';
+            // Update custom date range inputs to reflect the selected period
+            const today = new Date();
+            const endDateStr = toInputDate(today);
+            const startDate = new Date(today);
+            // Period is inclusive of today, so subtract (period - 1)
+            startDate.setDate(today.getDate() - Math.max(period - 1, 0));
+            const startDateStr = toInputDate(startDate);
+
+            if (startDateInput) {
+                startDateInput.max = endDateStr;
+                startDateInput.min = '';
+                startDateInput.value = startDateStr;
+            }
+            if (endDateInput) {
+                endDateInput.max = endDateStr;
+                endDateInput.min = startDateStr;
+                endDateInput.value = endDateStr;
+            }
         });
     }
 
@@ -471,8 +520,39 @@ function setupChartInteractions() {
     const startDateInput = document.getElementById('chart-start-date');
     const endDateInput = document.getElementById('chart-end-date');
 
-    if (startDateInput) startDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
-    if (endDateInput) endDateInput.value = today.toISOString().split('T')[0];
+    if (startDateInput) {
+        const startStr = toInputDate(thirtyDaysAgo);
+        const endStr = toInputDate(today);
+        startDateInput.max = endStr;
+        startDateInput.value = startStr;
+    }
+    if (endDateInput) {
+        const endStr = toInputDate(today);
+        const startStr = toInputDate(thirtyDaysAgo);
+        endDateInput.min = startStr;
+        endDateInput.max = endStr;
+        endDateInput.value = endStr;
+    }
+
+    // Keep inputs consistent: Từ ngày <= Đến ngày
+    if (startDateInput && endDateInput) {
+        startDateInput.addEventListener('change', () => {
+            const s = startDateInput.value;
+            if (!s) return;
+            endDateInput.min = s;
+            if (endDateInput.value && endDateInput.value < s) {
+                endDateInput.value = s;
+            }
+        });
+        endDateInput.addEventListener('change', () => {
+            const e = endDateInput.value;
+            if (!e) return;
+            startDateInput.max = e;
+            if (startDateInput.value && startDateInput.value > e) {
+                startDateInput.value = e;
+            }
+        });
+    }
 
     // Add click handlers for "Xem chi tiết" buttons
     document.querySelectorAll('.view-details-btn').forEach(button => {
@@ -510,8 +590,9 @@ function updateChartsWithCustomRange() {
 
     loadDashboardCharts(null, startDate, endDate);
 
-    // Reset period selector
-    document.getElementById('chart-period').value = '';
+    // Reflect that a custom range is active
+    const periodSelect = document.getElementById('chart-period');
+    if (periodSelect) periodSelect.value = 'custom';
 }
 
 // View chart details function

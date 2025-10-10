@@ -227,20 +227,59 @@ function initDates() {
   start.setDate(end.getDate() - 30);
   const startEl = document.getElementById('detail-start-date');
   const endEl = document.getElementById('detail-end-date');
-  if (startEl && !startEl.value) startEl.value = start.toISOString().slice(0,10);
-  if (endEl && !endEl.value) endEl.value = end.toISOString().slice(0,10);
+  const startStr = toInputDate(start);
+  const endStr = toInputDate(end);
+  if (startEl && !startEl.value) {
+    startEl.max = endStr;
+    startEl.value = startStr;
+  }
+  if (endEl && !endEl.value) {
+    endEl.min = startStr;
+    endEl.max = endStr;
+    endEl.value = endStr;
+  }
+  // keep inputs consistent
+  if (startEl && endEl) {
+    startEl.addEventListener('change', () => {
+      if (!startEl.value) return;
+      endEl.min = startEl.value;
+      if (endEl.value && endEl.value < startEl.value) endEl.value = startEl.value;
+    });
+    endEl.addEventListener('change', () => {
+      if (!endEl.value) return;
+      startEl.max = endEl.value;
+      if (startEl.value && startEl.value > endEl.value) startEl.value = endEl.value;
+    });
+  }
 }
 
 function initEvents() {
   const period = document.getElementById('detail-period');
   if (period) {
     period.addEventListener('change', () => {
-      // Xóa custom dates để ưu tiên khoảng thời gian
+      const val = period.value;
       const s = document.getElementById('detail-start-date');
       const e = document.getElementById('detail-end-date');
-      if (s) s.value = '';
-      if (e) e.value = '';
-      loadChartData(parseInt(period.value));
+      if (val === 'custom') {
+        const today = new Date();
+        const endStr = toInputDate(today);
+        const startDefault = new Date(today);
+        startDefault.setDate(today.getDate() - 30);
+        const startStr = toInputDate(startDefault);
+        if (s) { if (!s.value) s.value = startStr; s.max = endStr; }
+        if (e) { if (!e.value) e.value = endStr; e.min = s ? s.value : ''; e.max = endStr; }
+        // do not auto-fetch; wait for Update
+        return;
+      }
+      const days = parseInt(val) || 30;
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - Math.max(days - 1, 0));
+      const startStr = toInputDate(start);
+      const endStr = toInputDate(end);
+      if (s) { s.max = endStr; s.value = startStr; }
+      if (e) { e.min = startStr; e.max = endStr; e.value = endStr; }
+      loadChartData(days);
     });
   }
   const updateBtn = document.querySelector('button[onclick="updateDetailChart()"]');
@@ -286,6 +325,14 @@ function initEvents() {
       });
     }
   }
+}
+
+// Format Date -> YYYY-MM-DD (local time)
+function toInputDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /* -------- Data Helpers -------- */
