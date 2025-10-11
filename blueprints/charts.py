@@ -202,7 +202,7 @@ def dashboard_data():
          .group_by(WastewaterPlant.date).all()
         customer_data = db.session.query(
             CustomerReading.date,
-            db.func.sum(CustomerReading.clean_water_reading).label('total_clean_water'),
+            db.func.sum(CustomerReading.clean_water_reading + db.func.coalesce(CustomerReading.clean_water_reading_2, 0)).label('total_clean_water'), # bổ sung thêm đh2
             db.func.sum(
                 db.case((CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
                         else_=CustomerReading.wastewater_calculated)
@@ -249,13 +249,13 @@ def chart_details(chart_type):
         top_customers_query = db.session.query(
             Customer.id,
             Customer.company_name,
-            db.func.sum(CustomerReading.clean_water_reading).label('total_clean_water')
+            db.func.sum(CustomerReading.clean_water_reading + db.func.coalesce(CustomerReading.clean_water_reading_2, 0)).label('total_clean_water')
         ).join(CustomerReading).filter(
             Customer.is_active == True,
             CustomerReading.date >= start_date,
             CustomerReading.date <= end_date
         ).group_by(Customer.id, Customer.company_name)\
-         .order_by(db.func.sum(CustomerReading.clean_water_reading).desc())\
+         .order_by(db.func.sum(CustomerReading.clean_water_reading + db.func.coalesce(CustomerReading.clean_water_reading_2, 0)).desc())\
          .limit(4).all()
         
         customers_list = [{'id': c.id, 'name': c.company_name, 'total_consumption': float(c.total_clean_water or 0)} for c in top_customers_query]
@@ -720,7 +720,7 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
         # Aggregate mode: show total consumption across selected customers
         query = db.session.query(
             CustomerReading.date,
-            db.func.sum(CustomerReading.clean_water_reading).label('total_clean_water'),
+            db.func.sum(CustomerReading.clean_water_reading + db.func.coalesce(CustomerReading.clean_water_reading_2, 0)).label('total_clean_water'),
             db.func.sum(
                 db.case((CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
                         else_=CustomerReading.wastewater_calculated)
@@ -790,19 +790,27 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
         }
     
     else:
-        # Individual customers mode: show each customer separately
+    # Individual customers mode: show each customer separately
         query = db.session.query(
             CustomerReading.date,
-            Customer.id,
+            Customer.id.label('customer_id'),
             Customer.company_name,
-            CustomerReading.clean_water_reading,
-            db.case((CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
-                    else_=CustomerReading.wastewater_calculated).label('wastewater_total')
+
+            # 👉 Tổng nước sạch = ĐH1 + (ĐH2 hoặc 0)
+            (
+                CustomerReading.clean_water_reading +
+                db.func.coalesce(CustomerReading.clean_water_reading_2, 0)
+            ).label('clean_water_total'),
+            db.case(
+                (CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
+                else_=CustomerReading.wastewater_calculated
+            ).label('wastewater_total')
         ).join(Customer).filter(
             CustomerReading.date >= start_date, 
             CustomerReading.date <= end_date,
             Customer.is_active == True
-        )
+        ).order_by(CustomerReading.date, Customer.company_name)
+
         
         if customer_ids:
             query = query.filter(Customer.id.in_(customer_ids))
@@ -817,7 +825,7 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
             if customer_key not in customers_clean:
                 customers_clean[customer_key] = {}
                 customers_wastewater[customer_key] = {}
-            customers_clean[customer_key][r.date] = float(r.clean_water_reading or 0)
+            customers_clean[customer_key][r.date] = float(r.clean_water_total or 0)
             customers_wastewater[customer_key][r.date] = float(r.wastewater_total or 0)
         
         labels = [d.strftime('%d/%m') for d in dates]
