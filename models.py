@@ -104,7 +104,8 @@ class CustomerReading(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
-    clean_water_reading = db.Column(db.Float)  # m3
+    clean_water_reading = db.Column(db.Float)  # m3 chỉ số của đh 1
+    clean_water_reading_2 = db.Column(db.Float) #m3 chỉ sổ của đh 2
     wastewater_reading = db.Column(db.Float)  # m3 (for large customers)
     wastewater_calculated = db.Column(db.Float)  # m3 (calculated from ratio)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

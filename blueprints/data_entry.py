@@ -466,12 +466,17 @@ def submit_customer_readings():
 
         filled = {}
         for cid in customer_ids:
-            cw_raw = request.form.get(f'clean_water_{cid}', '')
-            ww_raw = request.form.get(f'wastewater_{cid}', '')
-            cw_val = parse_float_opt(cw_raw)
-            ww_val = parse_float_opt(ww_raw) if ww_raw != '' else None
-            if cw_val is not None or ww_val is not None:
-                filled[cid] = {'cw': cw_val, 'ww': ww_val}
+            cw1_raw = request.form.get(f'clean_water_{cid}', '')
+            cw2_raw = request.form.get(f'clean_water_2_{cid}', '')  #thêm ĐH2
+            ww_raw  = request.form.get(f'wastewater_{cid}', '')
+            print(cw2_raw)
+            cw1_val = parse_float_opt(cw1_raw)
+            cw2_val = parse_float_opt(cw2_raw)
+            ww_val  = parse_float_opt(ww_raw) if ww_raw != '' else None
+
+            # Có dữ liệu ở bất kỳ ô nào thì mới xử lý
+            if cw1_val is not None or cw2_val is not None or ww_val is not None:
+                filled[cid] = {'cw1': cw1_val, 'cw2': cw2_val, 'ww': ww_val}
 
         if not filled:
             flash('Không có dữ liệu để lưu', 'warning')
@@ -489,7 +494,7 @@ def submit_customer_readings():
 
         changes = 0
         for cid, vals in filled.items():
-            cw_val, ww_val = vals['cw'], vals['ww']
+            cw1_val, cw2_val, ww_val = vals['cw1'], vals['cw2'], vals['ww']
 
             # Tính wastewater_calculated nếu không nhập wastewater
             customer = Customer.query.get(cid)
@@ -497,21 +502,36 @@ def submit_customer_readings():
                 ratio = float(customer.water_ratio or 0)
             except (TypeError, ValueError):
                 ratio = 0.0
-            ww_calc = None if ww_val is not None else (cw_val * ratio if cw_val is not None else None)
+
+            total_clean = (cw1_val or 0.0) + (cw2_val or 0.0)  # ĐH1 + ĐH2 (ĐH2 null thì +0)
+            ww_calc = None if ww_val is not None else (
+                total_clean * ratio if (cw1_val is not None or cw2_val is not None) else None
+            )
 
             if cid in exist_map:
                 if cid in overwrite_ids:
                     before = (exist_map[cid].clean_water_reading,
+                              getattr(exist_map[cid], 'clean_water_reading_2', None),
                               exist_map[cid].wastewater_reading,
                               exist_map[cid].wastewater_calculated)
-                    if cw_val is not None:
-                        exist_map[cid].clean_water_reading = cw_val
-                        if ww_val is None:
-                            exist_map[cid].wastewater_calculated = ww_calc
+
+                    # Cập nhật ĐH1/ĐH2 nếu có nhập
+                    if cw1_val is not None:
+                        exist_map[cid].clean_water_reading = cw1_val
+                    if cw2_val is not None:
+                        exist_map[cid].clean_water_reading_2 = cw2_val  # lưu ĐH2
+
+                    # Xử lý nước thải: nếu nhập tay -> ưu tiên; nếu không -> tính lại theo tỷ lệ
                     if ww_val is not None:
                         exist_map[cid].wastewater_reading = ww_val
                         exist_map[cid].wastewater_calculated = None
+                    else:
+                        # Chỉ set lại calculated nếu có thay đổi ĐH1/ĐH2
+                        if cw1_val is not None or cw2_val is not None:
+                            exist_map[cid].wastewater_calculated = ww_calc
+
                     after = (exist_map[cid].clean_water_reading,
+                             getattr(exist_map[cid], 'clean_water_reading_2', None),
                              exist_map[cid].wastewater_reading,
                              exist_map[cid].wastewater_calculated)
                     if before != after:
@@ -521,7 +541,8 @@ def submit_customer_readings():
                 db.session.add(CustomerReading(
                     customer_id=cid,
                     date=entry_date,
-                    clean_water_reading=(cw_val if cw_val is not None else 0.0),
+                    clean_water_reading=(cw1_val if cw1_val is not None else 0.0),
+                    clean_water_reading_2=(cw2_val if cw2_val is not None else 0.0),  # 👈 thêm field mới
                     wastewater_reading=ww_val,
                     wastewater_calculated=(ww_calc if ww_val is None else None),
                     created_by=current_user.id
