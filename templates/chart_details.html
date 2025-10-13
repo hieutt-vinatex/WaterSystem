@@ -103,25 +103,36 @@
                 {% endif %}
                 
                 {% if chart_type == 'customers' %}
-                <div class="card-body">
+                  <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
-                            <label class="form-label">Khách hàng</label>
-                            <select class="form-select" id="customer-select">
-                                <option value="" selected>Top 4 khách hàng tiêu thụ nhiều nhất</option>
-                                {% for c in customers %}
-                                <option value="{{ c.id }}">{{ c.name }}</option>
-                                {% endfor %}
-                            </select>
+                      <div class="col-md-6">
+                        <label class="form-label d-block">Khách hàng (chọn tối đa 4)</label>
+
+                        <div id="customer-checkboxes" class="row g-2" style="max-height: 240px; overflow:auto;">
+                          {% for c in customers %}
+                          <div class="col-12 col-md-6">
+                            <label class="form-check">
+                              <input class="form-check-input customer-check" type="checkbox" value="{{ c.id }}" data-name="{{ c.name }}">
+                              <span class="form-check-label">{{ c.name }}</span>
+                            </label>
+                          </div>
+                          {% endfor %}
                         </div>
-                        <div class="col-md-6 d-flex align-items-end">
-                            <small class="text-muted">
-                                Chọn "Top 4" để xem tổng hợp, hoặc chọn khách hàng cụ thể để xem chi tiết. Đường liền: nước sạch, Đường đứt: nước thải.
-                            </small>
-                        </div>
+
+                        <small class="text-muted d-block mt-2">
+                          Không chọn = lấy Top 4 khách hàng tiêu thụ nhiều nhất.
+                        </small>
+                      </div>
+
+                      <div class="col-md-6 d-flex align-items-end">
+                        <small class="text-muted">
+                          Đường liền: nước sạch, Đường đứt: nước thải.
+                        </small>
+                      </div>
                     </div>
-                </div>
-                {% endif %}
+                  </div>
+                  {% endif %}
+
             </div>
         </div>
     </div>
@@ -370,11 +381,22 @@ function initEvents() {
   }
   
   if (chartType === 'customers') {
-    const select = document.getElementById('customer-select');
-    if (select) {
-      select.addEventListener('change', () => {
-        // Tự động cập nhật khi thay đổi selection
-        loadChartData();
+    const boxWrap = document.getElementById('customer-checkboxes');
+    if (boxWrap) {
+      const MAX = 4;
+
+      function enforceMax(e) {
+        const checked = boxWrap.querySelectorAll('.customer-check:checked');
+        if (checked.length > MAX) {
+          // bỏ tick vừa bật quá giới hạn
+          e.target.checked = false;
+        }
+      }
+
+      boxWrap.addEventListener('change', (e) => {
+        if (!e.target.classList.contains('customer-check')) return;
+        enforceMax(e);
+        loadChartData(); // tự cập nhật chart theo danh sách tick
       });
     }
   }
@@ -409,18 +431,21 @@ function getSelectedPlantIds() {
 
 function getSelectedCustomerIds() {
   if (chartType !== 'customers') return null;
-  const select = document.getElementById('customer-select');
-  if (!select) return null;
-  
-  const selectedValue = select.value;
-  if (!selectedValue) {
-    // Empty value means "Top 10" is selected (aggregate mode)
-    return null;
+
+  // Ưu tiên đọc từ checkbox
+  const ticked = Array.from(document.querySelectorAll('.customer-check:checked'))
+    .map(cb => Number(cb.value))
+    .filter(Boolean);
+
+  if (ticked.length) {
+    // Giới hạn 4 cho chắc
+    return ticked.slice(0, 4);
   }
-  
-  // Return array with single customer ID for individual mode
-  return [selectedValue];
+
+  // Không tick gì: để null -> backend sẽ trả Top 4
+  return null;
 }
+
 
 /* -------- Load / Update -------- */
 function updateDetailChart() {
@@ -542,23 +567,105 @@ function updateTable(rows) {
     return;
   }
 
-  const headers = Object.keys(rows[0]);
+  // --- Xác định và sắp xếp cột ---
+  const keySet = new Set(rows.flatMap(obj => Object.keys(obj)));
+
+  // Cột tổng (nếu có trong dữ liệu)
+  const totals = ['total_input', 'total_output', 'total', 'total_clean', 'total_wastewater']
+    .filter(k => keySet.has(k));
+
+  // Nhóm cột NMNT (input/output)
+  const plantCols = [...keySet]
+    .filter(k => /^NMNT\d+_(input|output)$/.test(k))
+    .map(k => {
+      const m = k.match(/^NMNT(\d+)_(input|output)$/);
+      return { key: k, plant: parseInt(m[1], 10), kind: m[2] };
+    })
+    .sort((a, b) => a.plant - b.plant || (a.kind === 'input' ? -1 : 1))
+    .map(x => x.key);
+
+  // Các cột khác (ngoài date / NMNT / totals)
+  const others = [...keySet].filter(
+    k => k !== 'date' && !plantCols.includes(k) && !totals.includes(k)
+  ).sort();
+
+  // Thứ tự cuối cùng
+  const headers = ['date', ...plantCols, ...others, ...totals];
+
+  // --- Render header ---
   headers.forEach(h => {
     const th = document.createElement('th');
     th.textContent = headerMap(h);
     head.appendChild(th);
   });
 
+  // --- Render body ---
   rows.forEach(r => {
     const tr = document.createElement('tr');
     headers.forEach(h => {
       const td = document.createElement('td');
-      td.textContent = (typeof r[h] === 'number') ? num(r[h]) : r[h];
+      td.textContent = (typeof r[h] === 'number') ? num(r[h]) : (r[h] ?? '');
       tr.appendChild(td);
     });
     body.appendChild(tr);
   });
 }
+
+
+function getWastewaterColumns(tableData) {
+  if (!tableData?.length) return ['date'];
+
+  const keySet = new Set(tableData.flatMap(o => Object.keys(o)));
+
+  // cột tổng chỉ lấy nếu có trong dữ liệu hiện tại
+  const totals = ['total_input','total_output','total','total_clean','total_wastewater']
+    .filter(k => keySet.has(k));
+
+  // nhóm cột NMNTn_input / NMNTn_output, sort theo số n; input trước output
+  const plantCols = [...keySet]
+    .filter(k => /^NMNT\d+_(input|output)$/.test(k))
+    .map(k => {
+      const m = k.match(/^NMNT(\d+)_(input|output)$/);
+      return { key: k, plant: parseInt(m[1], 10), kind: m[2] }; // kind: input|output
+    })
+    .sort((a, b) => a.plant - b.plant || (a.kind === 'input' ? -1 : 1))
+    .map(x => x.key);
+
+  // các cột khác (không phải date/plant/totals)
+  const others = [...keySet].filter(k => k !== 'date' && !totals.includes(k) && !plantCols.includes(k)).sort();
+
+  return ['date', ...plantCols, ...others, ...totals];
+}
+
+function renderWastewaterTable(tableData, tableSelector = '#wastewaterTable') {
+  const table = document.querySelector(tableSelector);
+  if (!table) return;
+
+  const thead = table.querySelector('thead');
+  const tbody = table.querySelector('tbody');
+
+  // nếu dùng DataTables, destroy trước để tránh dính cấu trúc cũ
+  if (window.jQuery && window.jQuery.fn.DataTable && window.jQuery.fn.DataTable.isDataTable(tableSelector)) {
+    window.jQuery(tableSelector).DataTable().destroy();
+  }
+
+  const columns = getWastewaterColumns(tableData);
+
+  thead.innerHTML = '<tr>' + columns.map(k => `<th>${headerMap(k)}</th>`).join('') + '</tr>';
+  tbody.innerHTML = tableData.map(row =>
+    '<tr>' + columns.map(k => `<td>${row[k] ?? ''}</td>`).join('') + '</tr>'
+  ).join('');
+
+  // khởi tạo lại DataTables (nếu dùng)
+  if (window.jQuery && window.jQuery.fn.DataTable) {
+    window.jQuery(tableSelector).DataTable({
+      destroy: true,
+      autoWidth: false,
+      order: [[columns.indexOf('date'), 'asc']]
+    });
+  }
+}
+
 
 function headerMap(h) {
   const map = { 
@@ -581,17 +688,21 @@ function headerMap(h) {
     total_water: 'Tổng nước sạch (m³)'
   };
   
-  // Handle dynamic customer columns
-  if (h.includes('_clean')) {
-    const customerName = h.replace('_clean', '');
+  // 1) ƯU TIÊN map tĩnh
+  if (map[h]) return map[h];
+
+  // 2) Chỉ áp dụng cho cột KH: …_clean hoặc …_waste ở CUỐI chuỗi và không phải total_*
+  if (/_clean$/.test(h) && !/^total_/.test(h)) {
+    const customerName = h.replace(/_clean$/, '');
     return `${customerName} - NS (m³)`;
   }
-  if (h.includes('_waste')) {
-    const customerName = h.replace('_waste', '');
+  if (/_waste$/.test(h) && !/^total_/.test(h)) {
+    const customerName = h.replace(/_waste$/, '');
     return `${customerName} - NT (m³)`;
   }
-  
-  return map[h] || h;
+
+  // 3) Mặc định
+  return h;
 }
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 function num(v){ return new Intl.NumberFormat('vi-VN').format(Math.round(v||0)); }

@@ -6,6 +6,7 @@ Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
 const chartTextColor = '#1a5a96'; // Dark blue for better visibility on white background
 const chartGridColor = '#dee2e6'; // Light gray for grid lines
 Chart.defaults.color = chartTextColor;
+// Chart.defaults.elements.line.fill = false;
 
 // Global chart instances
 let wellProductionChart = null;
@@ -62,7 +63,7 @@ function createWellProductionChart(data) {
                 data: productions,
                 borderColor: 'rgb(54, 162, 235)',
                 backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                fill: true,
+                fill: false,
                 tension: 0.4
             }]
         },
