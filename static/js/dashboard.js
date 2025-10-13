@@ -314,3 +314,71 @@ function initDashboardDatePicker() {
     // Trigger on date change
     dateInput.addEventListener('change', onApply);
 }
+
+async function loadSummarySixLinesChart(period = "current") {
+  try {
+    const res = await fetch(`/api/summary-six-lines?period=${period}`);
+    if (!res.ok) {
+      console.warn("No permission or API error");
+      return;
+    }
+    const data = await res.json();
+    const ctx = document.getElementById('summarySixLinesChart').getContext('2d');
+    if (window.summaryChart) window.summaryChart.destroy();
+
+    window.summaryChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: data.datasets.map(ds => ({
+          ...ds,
+          borderWidth: 2,
+          tension: 0.3,
+          pointRadius: 0
+        }))
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title: {
+            display: true,
+            text: 'Tổng hợp sản lượng – nước sạch – thải – hóa chất',
+            font: { size: 15 }
+          }
+        },
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'm³ / kg' } }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Error loading summary chart:', err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('toggleChartBtn');
+  const wrapper = document.getElementById('summaryChartWrapper');
+  const select = document.getElementById('periodSelect');
+  
+  if (btn && wrapper) {
+    btn.addEventListener('click', () => {
+      const collapsed = wrapper.style.display === 'none';
+      wrapper.style.display = collapsed ? 'block' : 'none';
+      btn.innerHTML = collapsed
+        ? '<i class="fas fa-compress-alt"></i> Thu gọn'
+        : '<i class="fas fa-expand-alt"></i> Mở rộng';
+    });
+  }
+
+  if (select) {
+    select.addEventListener('change', e => loadSummarySixLinesChart(e.target.value));
+  }
+
+  // Chỉ gọi nếu chart tồn tại
+  if (document.getElementById('summarySixLinesChart')) {
+    loadSummarySixLinesChart();
+  }
+});

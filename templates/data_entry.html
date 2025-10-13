@@ -346,7 +346,7 @@
                                     <td >
                                         <input type="number" class="form-control" name="clean_water_{{ customer.id }}" 
                                                step="0.1" min="0" placeholder="Chỉ số NS">
-                                        {% if customer.company_name not in ['Công ty Lệ Tinh', 'Công ty Jasan'] %}
+                                        {% if customer.company_name in ['Cty TNHH Dệt và Nhuộm Hưng Yên', 'Cty TNHH dệt may Lee Hing Việt Nam'] %}
                                             <input type="number" step="0.01"
                                                 name="clean_water_2_{{ customer.id }}"
                                                 class="form-control"
@@ -772,5 +772,67 @@ document.addEventListener('DOMContentLoaded', function () {
         form.submit();
     });
 });
+
+// --- Progress bar BỂ CHỨA theo % ---
+(function () {
+  // Cập nhật 1 thanh theo giá trị nhập
+  function updateTankBar(tankId, rawValue) {
+    const bar = document.querySelector(`.progress-bar[data-tank-id="${tankId}"]`);
+    if (!bar) return;
+
+    const capacity = parseFloat(bar.dataset.capacity) || 0;
+    const val = Math.max(0, parseFloat(rawValue));
+    const pct = capacity > 0 && isFinite(val)
+      ? (val / capacity) * 100
+      : 0;
+
+    const pctStr = `${Math.round(pct)}%`;
+    bar.style.width = pctStr;
+    bar.textContent = pctStr;
+
+    // A11y + trạng thái
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', '100');
+    bar.setAttribute('aria-valuenow', String(Math.round(pct)));
+
+    // Đổi màu cảnh báo (tuỳ ý)
+    bar.classList.toggle('bg-danger', val > capacity);
+    bar.classList.toggle('bg-warning', val > 0 && val < capacity * 0.1);
+  }
+
+  // Lắng nghe mọi ô input level_*
+  function bindTankInputs(scope = document) {
+    scope.querySelectorAll('input[name^="level_"]').forEach(inp => {
+      // cập nhật khi gõ
+      inp.addEventListener('input', () => {
+        const tankId = inp.name.split('_')[1];
+        updateTankBar(tankId, inp.value);
+      });
+      // khởi tạo nếu có sẵn value (VD: back/forward cache hoặc autofill)
+      if (inp.value !== '') {
+        const tankId = inp.name.split('_')[1];
+        updateTankBar(tankId, inp.value);
+      }
+    });
+  }
+
+  // Chạy khi DOM xong
+  document.addEventListener('DOMContentLoaded', () => {
+    // Nếu tab Tanks đang ACTIVE lúc load, bind ngay
+    const tanksPane = document.querySelector('#tanks');
+    if (tanksPane && tanksPane.classList.contains('active')) {
+      bindTankInputs(tanksPane);
+    }
+
+    // Khi đổi tab sang Bể chứa thì mới bind (tránh làm thừa ở tab ẩn)
+    document.querySelectorAll('#dataEntryTabs button[data-bs-toggle="tab"]').forEach(btn => {
+      btn.addEventListener('shown.bs.tab', (e) => {
+        if (e.target.getAttribute('data-bs-target') === '#tanks') {
+          bindTankInputs(document.querySelector('#tanks'));
+        }
+      });
+    });
+  });
+})();
 </script>
 {% endblock %}
