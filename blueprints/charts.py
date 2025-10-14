@@ -4,6 +4,8 @@ from flask import Blueprint, jsonify, render_template, request, redirect, url_fo
 from flask_login import login_required,current_user
 from app import db
 from models import Well, WellProduction, CleanWaterPlant, WastewaterPlant, CustomerReading, Customer, WaterTankLevel
+from sqlalchemy import func, case
+from sqlalchemy.sql import over
 
 bp = Blueprint('charts', __name__)
 logger = logging.getLogger(__name__)
@@ -381,7 +383,7 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
         total_each_day = total_series[:]  # chính là chuỗi tổng
         summary = {
             'total': sum(total_each_day),
-            'average': (sum(total_each_day) / len(total_each_day)) if total_each_day else 0,
+            'average': (sum(total_each_day) / len(dates)) if dates else 0,
             'max': max(total_each_day) if total_each_day else 0,
             'min': min([v for v in total_each_day if v > 0]) if any(total_each_day) else 0
         }
@@ -449,7 +451,7 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
     total_each_day = [sum(ds['data'][idx] for ds in datasets if 'Công suất' not in ds['label']) for idx in range(len(labels))]
     summary = {
         'total': sum(total_each_day),
-        'average': (sum(total_each_day)/len(total_each_day)) if total_each_day else 0,
+        'average': (sum(total_each_day)/len(dates)) if dates else 0,
         'max': max(total_each_day) if total_each_day else 0,
         'min': min([v for v in total_each_day if v > 0]) if any(total_each_day) else 0
     }
@@ -616,7 +618,7 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
         all_values = input_data + output_data
         summary = {
             'total': sum(all_values),
-            'average': sum(all_values) / (2 * len(dates)) if dates else 0,
+            'average': sum(all_values) / (len(dates)) if dates else 0,
             'max': max(all_values) if all_values else 0,
             'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
         }
@@ -705,7 +707,7 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
         
         summary = {
             'total': sum(all_values),
-            'average': sum(all_values) / len(all_values) if all_values else 0,
+            'average': sum(all_values) / len(dates) if dates else 0,
             'max': max(all_values) if all_values else 0,
             'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
         }
@@ -725,8 +727,8 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
                 total_input += input_val
                 total_output += output_val
             
-            row['total_input'] = total_input
-            row['total_output'] = total_output
+            # row['total_input'] = total_input
+            # row['total_output'] = total_output
             table_data.append(row)
         
         return {
@@ -735,73 +737,115 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
             'table_data': table_data
         }
 
+
 # Lấy số lượng nước tiêu thụ của khách hàng
 def generate_customer_details(start_date, end_date, customer_ids=None, aggregate=False):
-    """Generate customer consumption details WITH daily-reading customers only"""
-    # Generate date range
+    """Generate customer consumption details WITH daily-reading customers only (delta = sau - trước)"""
+
+    # --- Dải ngày để fill dữ liệu trống ---
     dates = []
     cur = start_date
     while cur <= end_date:
         dates.append(cur)
         cur += timedelta(days=1)
 
-    if aggregate:
-        # Aggregate mode: show total consumption across selected daily-reading customers
-        query = db.session.query(
-            CustomerReading.date,
-            db.func.sum(
-                CustomerReading.clean_water_reading + db.func.coalesce(CustomerReading.clean_water_reading_2, 0)
-            ).label('total_clean_water'),
-            db.func.sum(
-                db.case(
-                    (CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
-                    else_=CustomerReading.wastewater_calculated
-                )
-            ).label('total_wastewater')
-        ).join(Customer).filter(
+    # --- Định nghĩa biểu thức delta cho NS/NT ---
+    total_ns = (
+        (CustomerReading.clean_water_reading +
+         func.coalesce(getattr(CustomerReading, "clean_water_reading_2", 0), 0))
+    )
+    lag_total_ns = func.lag(total_ns).over(
+        partition_by=CustomerReading.customer_id,
+        order_by=CustomerReading.date
+    )
+    clean_delta_expr = case(
+        (((total_ns - func.coalesce(lag_total_ns, total_ns)) < 0), 0),
+        else_=(total_ns - func.coalesce(lag_total_ns, total_ns))
+    )
+
+    # Tổng chỉ số NT dùng để trừ: ưu tiên đồng hồ, không có thì dùng tính theo tỉ lệ
+    total_waste = func.coalesce(CustomerReading.wastewater_reading,
+                                CustomerReading.wastewater_calculated)
+
+    # Chỉ số ngày trước theo cùng quy tắc
+    lag_total_waste = func.lag(total_waste).over(
+        partition_by=CustomerReading.customer_id,
+        order_by=CustomerReading.date
+    )
+
+    # Delta ngày = max(curr - prev, 0) ; nếu không có ngày trước thì = 0
+    wastewater_delta_expr = case(
+        (((total_waste - func.coalesce(lag_total_waste, total_waste)) < 0), 0),
+        else_=(total_waste - func.coalesce(lag_total_waste, total_waste))
+    )
+
+
+    # --- Subquery tính delta (chưa lọc theo customer_ids để có thể lấy Top 4) ---
+    delta_sq_all = (
+        db.session.query(
+            CustomerReading.date.label('date'),
+            CustomerReading.customer_id.label('customer_id'),
+            Customer.company_name.label('company_name'),
+            clean_delta_expr.label('clean_delta'),
+            wastewater_delta_expr.label('wastewater_delta')
+        )
+        .join(Customer, Customer.id == CustomerReading.customer_id)
+        .filter(
             CustomerReading.date >= start_date,
             CustomerReading.date <= end_date,
-            Customer.is_active == True,
-            Customer.daily_reading == True        # <<< chỉ khách hàng hàng ngày
+            Customer.is_active.is_(True),
+            Customer.daily_reading.is_(True),
         )
+        .subquery()
+    )
 
-        if not customer_ids:
-            # Top 4 theo NS nhưng vẫn chỉ trong nhóm hàng ngày
-            top4_rows = (
-                db.session.query(
-                    Customer.id.label('cid'),
-                    db.func.sum(
-                        CustomerReading.clean_water_reading + db.func.coalesce(CustomerReading.clean_water_reading_2, 0)
-                    ).label('sum_clean')
-                )
-                .join(Customer)
-                .filter(
-                    CustomerReading.date >= start_date,
-                    CustomerReading.date <= end_date,
-                    Customer.is_active == True,
-                    Customer.daily_reading == True    # <<< chỉ khách hàng hàng ngày
-                )
-                .group_by(Customer.id)
-                .order_by(db.desc('sum_clean'))
-                .limit(4)
-                .all()
+    # --- Tự chọn Top 4 nếu cần (dựa trên tổng clean_delta) ---
+    if aggregate and not customer_ids:
+        top4_rows = (
+            db.session.query(
+                delta_sq_all.c.customer_id,
+                func.sum(delta_sq_all.c.clean_delta).label('sum_clean_delta')
             )
-            customer_ids = [row.cid for row in top4_rows] or None
+            .group_by(delta_sq_all.c.customer_id)
+            .order_by(func.sum(delta_sq_all.c.clean_delta).desc())
+            .limit(4)
+            .all()
+        )
+        customer_ids = [r.customer_id for r in top4_rows] or None
 
-        if customer_ids:
-            query = query.filter(Customer.id.in_(customer_ids))
+    # --- Subquery delta cuối (có thể lọc theo customer_ids nếu truyền/đã xác định Top4)---
+    delta_sq = (
+        db.session.query(
+            delta_sq_all.c.date,
+            delta_sq_all.c.customer_id,
+            delta_sq_all.c.company_name,
+            delta_sq_all.c.clean_delta,
+            delta_sq_all.c.wastewater_delta
+        )
+        .filter(*( [delta_sq_all.c.customer_id.in_(customer_ids)] if customer_ids else [] ))
+        .subquery()
+    )
 
-        rows = query.group_by(CustomerReading.date).order_by(CustomerReading.date).all()
+    labels = [d.strftime('%d/%m') for d in dates]
 
-        # Create data maps
-        clean_map = {r.date: float(r.total_clean_water or 0) for r in rows}
-        wastewater_map = {r.date: float(r.total_wastewater or 0) for r in rows}
+    if aggregate:
+        # --- Tổng hợp theo NGÀY trên delta_sq ---
+        rows = (
+            db.session.query(
+                delta_sq.c.date,
+                func.sum(delta_sq.c.clean_delta).label('total_clean'),
+                func.sum(delta_sq.c.wastewater_delta).label('total_waste')
+            )
+            .group_by(delta_sq.c.date)
+            .order_by(delta_sq.c.date)
+        ).all()
 
-        # Generate data series
+        clean_map = {r.date: float(r.total_clean or 0) for r in rows}
+        wastewater_map = {r.date: float(r.total_waste or 0) for r in rows}
+
         clean_data = [clean_map.get(d, 0.0) for d in dates]
         wastewater_data = [wastewater_map.get(d, 0.0) for d in dates]
 
-        labels = [d.strftime('%d/%m') for d in dates]
         datasets = [
             {
                 'label': 'Tổng nước sạch tiêu thụ (m³)',
@@ -821,22 +865,15 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
             }
         ]
 
-        # Summary
-        all_values = clean_data
         summary = {
-            'total': sum(all_values),
-            'average': sum(all_values) / (len(dates)) if dates else 0,
-            'max': max(all_values) if all_values else 0,
-            'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+            'total': sum(clean_data),
+            'average': (sum(clean_data) / len(dates)) if dates else 0,
+            'max': max(clean_data) if clean_data else 0,
+            'min': min([v for v in clean_data if v > 0]) if any(clean_data) else 0
         }
 
-        # Table data
         table_data = [
-            {
-                'date': d.strftime('%d/%m/%Y'),
-                'clean_water': clean_data[i],
-                'wastewater': wastewater_data[i]
-            }
+            {'date': d.strftime('%d/%m/%Y'), 'clean_water': clean_data[i], 'wastewater': wastewater_data[i]}
             for i, d in enumerate(dates)
         ]
 
@@ -846,115 +883,95 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
             'table_data': table_data
         }
 
-    else:
-        # Individual customers mode: show each DAILY-READING customer separately
-        query = db.session.query(
-            CustomerReading.date,
-            Customer.id.label('customer_id'),
-            Customer.company_name,
-            (CustomerReading.clean_water_reading + db.func.coalesce(CustomerReading.clean_water_reading_2, 0)).label('clean_water_total'),
-            db.case(
-                (CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
-                else_=CustomerReading.wastewater_calculated
-            ).label('wastewater_total')
-        ).join(Customer).filter(
-            CustomerReading.date >= start_date,
-            CustomerReading.date <= end_date,
-            Customer.is_active == True,
-            Customer.daily_reading == True        # <<< chỉ khách hàng hàng ngày
+    # --- Chế độ từng khách: tách series theo khách từ delta_sq ---
+    rows = (
+        db.session.query(
+            delta_sq.c.date,
+            delta_sq.c.customer_id,
+            delta_sq.c.company_name,
+            delta_sq.c.clean_delta,
+            delta_sq.c.wastewater_delta
         )
+        .order_by(delta_sq.c.date, delta_sq.c.company_name)
+    ).all()
 
-        if customer_ids:
-            query = query.filter(Customer.id.in_(customer_ids))
+    customers_clean = {}
+    customers_wastewater = {}
+    for r in rows:
+        k = r.company_name
+        customers_clean.setdefault(k, {})[r.date] = float(r.clean_delta or 0)
+        customers_wastewater.setdefault(k, {})[r.date] = float(r.wastewater_delta or 0)
 
-        rows = query.order_by(CustomerReading.date, Customer.company_name).all()
+    colors = [
+        'rgb(54, 162, 235)', 'rgb(255, 99, 132)', 'rgb(75, 192, 192)', 'rgb(255, 206, 86)',
+        'rgb(153, 102, 255)', 'rgb(255, 159, 64)', 'rgb(199, 199, 199)', 'rgb(83, 102, 255)',
+        'rgb(255, 99, 255)', 'rgb(99, 255, 132)'
+    ]
+    datasets = []
+    # NS theo khách
+    for idx, name in enumerate(sorted(customers_clean.keys())):
+        color = colors[idx % len(colors)]
+        datasets.append({
+            'label': f'{name} - Nước sạch (m³)',
+            'data': [customers_clean[name].get(d, 0) for d in dates],
+            'borderColor': color,
+            'backgroundColor': color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+            'fill': False,
+            'tension': 0.4
+        })
+    # NT theo khách (dashed)
+    for idx, name in enumerate(sorted(customers_wastewater.keys())):
+        color = colors[idx % len(colors)]
+        datasets.append({
+            'label': f'{name} - Nước thải (m³)',
+            'data': [customers_wastewater[name].get(d, 0) for d in dates],
+            'borderColor': color,
+            'backgroundColor': 'rgba(0,0,0,0)',
+            'fill': False,
+            'tension': 0.4,
+            'borderDash': [5, 5]
+        })
 
-        # Organize data by customer
-        customers_clean = {}
-        customers_wastewater = {}
-        for r in rows:
-            customer_key = r.company_name
-            if customer_key not in customers_clean:
-                customers_clean[customer_key] = {}
-                customers_wastewater[customer_key] = {}
-            customers_clean[customer_key][r.date] = float(r.clean_water_total or 0)
-            customers_wastewater[customer_key][r.date] = float(r.wastewater_total or 0)
+    # Summary
+    clean_values = []
+    all_values = []
+    for _, mp in customers_clean.items():
+        vals = list(mp.values())
+        clean_values.extend(vals)
+        all_values.extend(vals)
+    for _, mp in customers_wastewater.items():
+        all_values.extend(mp.values())
 
-        labels = [d.strftime('%d/%m') for d in dates]
-        datasets = []
+    summary = {
+        'total': sum(clean_values),
+        'average': (sum(clean_values) / len(dates)) if dates else 0,
+        'max': max(all_values) if all_values else 0,
+        'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+    }
 
-        colors = ['rgb(54, 162, 235)', 'rgb(255, 99, 132)', 'rgb(75, 192, 192)', 'rgb(255, 206, 86)',
-                  'rgb(153, 102, 255)', 'rgb(255, 159, 64)', 'rgb(199, 199, 199)', 'rgb(83, 102, 255)',
-                  'rgb(255, 99, 255)', 'rgb(99, 255, 132)']
-        color_idx = 0
+    # Bảng dữ liệu theo ngày
+    table_data = []
+    for d in dates:
+        row = {'date': d.strftime('%d/%m/%Y')}
+        total_clean = 0.0
+        total_waste = 0.0
+        for name in sorted(customers_clean.keys()):
+            clean_val = customers_clean[name].get(d, 0.0)
+            waste_val = customers_wastewater[name].get(d, 0.0)
+            short = name[:15] + "..." if len(name) > 15 else name
+            row[f'{short}_clean'] = clean_val
+            row[f'{short}_waste'] = waste_val
+            total_clean += clean_val
+            total_waste += waste_val
+        # row['total_clean'] = total_clean
+        # row['total_wastewater'] = total_waste
+        table_data.append(row)
 
-        # Clean water per customer
-        for customer_name in sorted(customers_clean.keys()):
-            color = colors[color_idx % len(colors)]
-            datasets.append({
-                'label': f'{customer_name} - Nước sạch (m³)',
-                'data': [customers_clean[customer_name].get(d, 0) for d in dates],
-                'borderColor': color,
-                'backgroundColor': color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
-                'fill': False,
-                'tension': 0.4
-            })
-            color_idx += 1
-
-        # Wastewater (dashed)
-        color_idx = 0
-        for customer_name in sorted(customers_wastewater.keys()):
-            color = colors[color_idx % len(colors)]
-            datasets.append({
-                'label': f'{customer_name} - Nước thải (m³)',
-                'data': [customers_wastewater[customer_name].get(d, 0) for d in dates],
-                'borderColor': color,
-                'backgroundColor': 'rgba(0,0,0,0)',
-                'fill': False,
-                'tension': 0.4,
-                'borderDash': [5, 5]
-            })
-            color_idx += 1
-
-        # Summary
-        all_values = []
-        for ds in datasets:
-            all_values.extend(ds['data'])
-        clean_values = []
-        for _, date_map in customers_clean.items():
-            clean_values.extend(date_map.values())
-        summary = {
-            'total': sum(clean_values),
-            'average': sum(clean_values) / len(clean_values) if clean_values else 0,
-            'max': max(all_values) if all_values else 0,
-            'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
-        }
-
-        # Table data with columns for each customer
-        table_data = []
-        for i, d in enumerate(dates):
-            row = {'date': d.strftime('%d/%m/%Y')}
-            total_clean = 0
-            total_wastewater = 0
-
-            for customer_name in sorted(customers_clean.keys()):
-                clean_val = customers_clean[customer_name].get(d, 0)
-                wastewater_val = customers_wastewater[customer_name].get(d, 0)
-                short_name = customer_name[:15] + "..." if len(customer_name) > 15 else customer_name
-                row[f'{short_name}_clean'] = clean_val
-                row[f'{short_name}_waste'] = wastewater_val
-                total_clean += clean_val
-                total_wastewater += wastewater_val
-
-            row['total_clean'] = total_clean
-            row['total_wastewater'] = total_wastewater
-            table_data.append(row)
-
-        return {
-            'chart_data': {'labels': labels, 'datasets': datasets},
-            'summary': summary,
-            'table_data': table_data
-        }
+    return {
+        'chart_data': {'labels': labels, 'datasets': datasets},
+        'summary': summary,
+        'table_data': table_data
+    }
 
 
 @bp.route('/api/summary-six-lines')
