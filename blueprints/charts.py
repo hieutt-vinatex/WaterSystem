@@ -204,28 +204,64 @@ def dashboard_data():
             db.func.sum(WastewaterPlant.output_flow_tqt).label('total_output')
         ).filter(WastewaterPlant.date >= start_date, WastewaterPlant.date <= end_date)\
          .group_by(WastewaterPlant.date).all()
+
+       # Hai đồng hồ nước sạch (nếu có)
+        r1 = func.coalesce(CustomerReading.clean_water_reading, 0)
+        r2 = func.coalesce(getattr(CustomerReading, 'clean_water_reading_2', 0), 0)
+        total_ns = r1 + r2
+
+        lag_total_ns = func.lag(total_ns).over(
+            partition_by=CustomerReading.customer_id,
+            order_by=CustomerReading.date
+        )
+        delta_ns = case(
+            (((total_ns - func.coalesce(lag_total_ns, total_ns)) < 0), 0),
+            else_=(total_ns - func.coalesce(lag_total_ns, total_ns))
+        ).label('delta_ns')
+
+        # Nước thải: nếu có đồng hồ NT thì lấy delta theo đồng hồ; nếu không, tính theo tỉ lệ KH
+        r_nt = func.coalesce(CustomerReading.wastewater_reading, 0)
+        lag_nt = func.lag(r_nt).over(
+            partition_by=CustomerReading.customer_id,
+            order_by=CustomerReading.date
+        )
+        delta_nt_meter = case(
+            (CustomerReading.wastewater_reading.is_(None), None),
+            else_=case(
+                (((r_nt - func.coalesce(lag_nt, r_nt)) < 0), 0),
+                else_=(r_nt - func.coalesce(lag_nt, r_nt))
+            )
+        )
+
+        # Subquery: delta theo từng KH/ngày (không lọc ngày ở đây để xử lý đúng biên ngày đầu kỳ)
+        subq = (
+            db.session.query(
+                CustomerReading.customer_id.label('cid'),
+                CustomerReading.date.label('d'),
+                delta_ns,
+                # nếu không có đồng hồ NT, tính theo tỉ lệ nước thải của KH
+                func.coalesce(delta_nt_meter, delta_ns * Customer.water_ratio).label('delta_nt')
+            )
+            .join(Customer, Customer.id == CustomerReading.customer_id)
+            .filter(
+                Customer.is_active.is_(True),
+                Customer.daily_reading.is_(True)
+            )
+        ).subquery()
+
+        # Tổng theo ngày trong khoảng yêu cầu
         customer_data = (
             db.session.query(
-                CustomerReading.date,
-                db.func.sum(
-                    CustomerReading.clean_water_reading +
-                    db.func.coalesce(CustomerReading.clean_water_reading_2, 0)
-                ).label('total_clean_water'),
-                db.func.sum(
-                    db.case(
-                        (CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
-                        else_=CustomerReading.wastewater_calculated
-                    )
-                ).label('total_wastewater')
+                subq.c.d.label('date'),
+                func.sum(subq.c.delta_ns).label('total_clean_water'),
+                func.sum(subq.c.delta_nt).label('total_wastewater')
             )
-            .join(Customer)  # << thêm join để lọc theo thuộc tính của KH
             .filter(
-                CustomerReading.date >= start_date,
-                CustomerReading.date <= end_date,
-                Customer.is_active == True,
-                Customer.daily_reading == True   # << chỉ KH đọc số hằng ngày
+                subq.c.d >= start_date,
+                subq.c.d <= end_date
             )
-            .group_by(CustomerReading.date)
+            .group_by(subq.c.d)
+            .order_by(subq.c.d)
             .all()
         )
         return jsonify({
@@ -614,15 +650,17 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
             }
         ]
         
-        # Summary statistics
-        all_values = input_data + output_data
+        # --- CHANGED: Summary = chỉ lấy đầu vào ---
+        valid_inputs = [v for v in input_data if v > 0]
+        total_input = sum(input_data)
         summary = {
-            'total': sum(all_values),
-            'average': sum(all_values) / (len(dates)) if dates else 0,
-            'max': max(all_values) if all_values else 0,
-            'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+            'total': total_input,
+            'average': (total_input / len(dates)) if dates else 0,
+            'max': max(valid_inputs) if valid_inputs else 0,
+            'min': min(valid_inputs) if valid_inputs else 0
         }
-        
+        # -----------------------------------------
+
         # Table data
         table_data = [
             {
@@ -688,7 +726,6 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
         color_idx = 0
         for plant_name in sorted(plants_output.keys()):
             color = colors[color_idx % len(colors)]
-            # Make output lines dashed to distinguish from input
             datasets.append({
                 'label': f'{plant_name} - Đầu ra (m³)',
                 'data': [plants_output[plant_name].get(d, 0) for d in dates],
@@ -700,35 +737,29 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
             })
             color_idx += 1
         
-        # Calculate summary from all non-dashed datasets (input + output)
-        all_values = []
-        for ds in datasets:
-            all_values.extend(ds['data'])
-        
+        # --- CHANGED: Summary = chỉ lấy đầu vào (tổng tất cả NMNT) ---
+        input_total_each_day = []
+        for d in dates:
+            daily_input_sum = sum(plants_input[plant].get(d, 0) for plant in plants_input.keys())
+            input_total_each_day.append(daily_input_sum)
+
+        valid_daily_inputs = [v for v in input_total_each_day if v > 0]
+        total_input = sum(input_total_each_day)
         summary = {
-            'total': sum(all_values),
-            'average': sum(all_values) / len(dates) if dates else 0,
-            'max': max(all_values) if all_values else 0,
-            'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+            'total': total_input,
+            'average': (total_input / len(dates)) if dates else 0,
+            'max': max(valid_daily_inputs) if valid_daily_inputs else 0,
+            'min': min(valid_daily_inputs) if valid_daily_inputs else 0
         }
-        
+        # -------------------------------------------------------------
+
         # Table data with columns for each plant
         table_data = []
         for i, d in enumerate(dates):
             row = {'date': d.strftime('%d/%m/%Y')}
-            total_input = 0
-            total_output = 0
-            
             for plant_name in sorted(plants_input.keys()):
-                input_val = plants_input[plant_name].get(d, 0)
-                output_val = plants_output[plant_name].get(d, 0)
-                row[f'{plant_name}_input'] = input_val
-                row[f'{plant_name}_output'] = output_val
-                total_input += input_val
-                total_output += output_val
-            
-            # row['total_input'] = total_input
-            # row['total_output'] = total_output
+                row[f'{plant_name}_input'] = plants_input[plant_name].get(d, 0)
+                row[f'{plant_name}_output'] = plants_output[plant_name].get(d, 0)
             table_data.append(row)
         
         return {
@@ -736,6 +767,7 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
             'summary': summary,
             'table_data': table_data
         }
+
 
 
 # Lấy số lượng nước tiêu thụ của khách hàng
@@ -771,13 +803,16 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
         (((r2 - func.coalesce(lag_r2, r2)) < 0), 0),
         else_=(r2 - func.coalesce(lag_r2, r2))
     )
-    companies_2_dh = [
-        'Cty TNHH Dệt và Nhuộm Hưng Yên',
-        'Cty TNHH dệt may Lee Hing Việt Nam'
+    companies_NHY = [
+        'Cty TNHH Dệt và Nhuộm Hưng Yên',    # Áp hệ số: đồng hồ 1 * 10, đồng hồ 2 * 1
     ]
-    # Áp hệ số: đồng hồ 1 * 10, đồng hồ 2 * 1
+    companies_LH = [
+        'Cty TNHH dệt may Lee Hing Việt Nam'    # Áp hệ số: đồng hồ 1, đồng hồ 2 * 10
+    ]
+
     clean_delta_expr = case(
-        (Customer.company_name.in_(companies_2_dh), (delta1 * 10) + delta2),
+        (Customer.company_name.in_(companies_NHY), (delta1 * 10) + delta2),
+        (Customer.company_name.in_(companies_LH), delta1 + delta2*10),
         else_=delta1
     )
 
@@ -965,8 +1000,8 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
     summary = {
         'total': sum(clean_values),
         'average': (sum(clean_values) / len(dates)) if dates else 0,
-        'max': max(all_values) if all_values else 0,
-        'min': min([v for v in all_values if v > 0]) if any(all_values) else 0
+        'max': max(clean_values) if clean_values else 0,
+        'min': min([v for v in clean_values if v > 0]) if any(clean_values) else 0
     }
 
     # Bảng dữ liệu theo ngày

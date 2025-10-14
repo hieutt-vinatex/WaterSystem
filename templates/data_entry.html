@@ -71,7 +71,7 @@
                                     <div class="mb-2">
                                         <label class="form-label">Chỉ số đồng hồ (m³)</label>
                                         <input type="number" class="form-control" name="production_{{ well.id }}" 
-                                               step="0.1" min="0" {% if well.is_backup %}value="0" readonly{% endif %}>
+                                            step="0.1" min="0" {% if well.is_backup %}value="0" readonly{% endif %}>
                                         <input type="hidden" name="well_ids" value="{{ well.id }}">
                                     </div>
                                     <small class="text-muted">Công suất: {{ well.capacity }} m³/ngày</small>
@@ -85,6 +85,34 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>Lưu dữ liệu giếng
                         </button>
+                    </div>
+                    <div class="card mt-4">
+                        <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                            <h5 class="mb-0"><i class="fas fa-table me-2"></i>Lịch sử nhập liệu</h5>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <select id="wells-range" class="form-select form-select-sm" style="width:auto;">
+                                <option value="30" selected>30 ngày gần nhất</option>
+                                <option value="60">60 ngày gần nhất</option>
+                                <option value="90">90 ngày gần nhất</option>
+                            </select>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                            <table class="table table-sm table-striped mb-0">
+                                <thead class="table-light">
+                                <tr id="wells-head"><th>Ngày</th></tr>
+                                </thead>
+                                <tbody id="wells-body">
+                                <tr><td class="text-center py-3">Đang tải...</td></tr>
+                                </tbody>
+                            </table>
+                            </div>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <small id="wells-summary" class="text-muted">—</small>
+                            <nav><ul id="wells-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -160,6 +188,40 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>Lưu dữ liệu nhà máy nước sạch
                         </button>
+                    </div>
+                    <div class="card mt-4">
+                        <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                            <h6 class="mb-0"><i class="fas fa-table me-2"></i>Lịch sử theo ngày</h6>
+                            <select id="cw-range" class="form-select form-select-sm" style="width:auto;">
+                            <option value="30" selected>30 ngày gần nhất</option>
+                            <option value="60">60 ngày gần nhất</option>
+                            <option value="90">90 ngày gần nhất</option>
+                            </select>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                            <table class="table table-sm table-striped mb-0">
+                                <thead class="table-light">
+                                <tr id="cw-head">
+                                    <th>Ngày</th>
+                                    <th>Điện tiêu thụ (kWh)</th>
+                                    <th>PAC (kg)</th>
+                                    <th>Xút (kg)</th>
+                                    <th>Polymer (kg)</th>
+                                    <th>Nước sạch sản xuất (m³)</th>
+                                    <th>Nước thô cấp cho Jasan (m³)</th>
+                                </tr>
+                                </thead>
+                                <tbody id="cw-body">
+                                <tr><td class="text-center py-3" colspan="7">Đang tải...</td></tr>
+                                </tbody>
+                            </table>
+                            </div>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <small id="cw-summary" class="text-muted">—</small>
+                            <nav><ul id="cw-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -437,6 +499,37 @@
                             <i class="fas fa-save me-2"></i>Lưu mức nước bể chứa
                         </button>
                     </div>
+                    <!-- Lịch sử bể chứa -->
+                    <div class="card mt-4">
+                        <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                            <h6 class="mb-0"><i class="fas fa-table me-2"></i>Lịch sử bể chứa theo ngày</h6>
+                            <select id="tanks-range" class="form-select form-select-sm" style="width:auto;">
+                            <option value="30" selected>30 ngày gần nhất</option>
+                            <option value="60">60 ngày gần nhất</option>
+                            <option value="90">90 ngày gần nhất</option>
+                            </select>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                            <table class="table table-sm table-striped mb-0">
+                                <thead class="table-light">
+                                <tr id="tanks-head">
+                                    <th>Ngày</th>
+                                    <!-- các cột bể sẽ được dựng động -->
+                                </tr>
+                                </thead>
+                                <tbody id="tanks-body">
+                                <tr><td class="text-center py-3" colspan="999">Đang tải...</td></tr>
+                                </tbody>
+                            </table>
+                            </div>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <small id="tanks-summary" class="text-muted">—</small>
+                            <nav><ul id="tanks-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+                        </div>
+                    </div>
+
                 </form>
             </div>
         </div>
@@ -445,398 +538,39 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  // Tắt auto scroll restore của trình duyệt
-  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    <script>
+    window.DATA_ENTRY_CONFIG = {
+        // endpoint tồn tại/ghi đè
+        cleanWaterExists: "{{ url_for('clean_water_plant_exists') }}",
+        wellProductionExists: "{{ url_for('well_production_exists') }}",
+        wastewaterExists: "{{ url_for('wastewater_plant_exists') }}",
+        customerReadingsExists: "{{ url_for('data_entry.customer_readings_exists') }}",
+        tankLevelExists: "{{ url_for('data_entry.water_tank_level_exists') }}",
 
-  const tabsSelector = '#dataEntryTabs button[data-bs-toggle="tab"]';
+        // endpoint lịch sử/pivot
+        wellsPivotApi: "/api/well-productions/history/pivot",
+        cleanWaterHistoryApi: "/api/clean-water/consumption/history",
+        tanksPivotApi: "/api/water-tanks/history/pivot",
 
-  // Hàm ép về đầu trang ở nhiều “nhịp” để thắng mọi restore/autofocus
-  const forceToTop = () => {
-    window.scrollTo(0, 0);                         // ngay lập tức
-    requestAnimationFrame(() => window.scrollTo(0, 0)); // sau frame
-    setTimeout(() => window.scrollTo(0, 0), 0);    // macrotask tiếp theo (Safari)
-  };
-
-  // 1) Gắn listener TRƯỚC khi show tab (để reload cũng scroll-top sau khi tab hiển thị)
-  document.querySelectorAll(tabsSelector).forEach(btn => {
-    btn.addEventListener('shown.bs.tab', e => {
-      const target = e.target.getAttribute('data-bs-target');
-      if (target) sessionStorage.setItem('dataEntryActiveTab', target);
-      forceToTop();
-    });
-  });
-
-  // 2) Khôi phục tab đã lưu (không dùng hash)
-  const savedTab = sessionStorage.getItem('dataEntryActiveTab');
-  if (savedTab) {
-    const trigger = document.querySelector(`${tabsSelector}[data-bs-target="${savedTab}"]`);
-    if (trigger && window.bootstrap) new bootstrap.Tab(trigger).show();
-  }
-
-  // 3) Luôn về đầu trang khi mới load và khi trang được phục hồi từ BFCache
-  forceToTop();
-  window.addEventListener('load', () => forceToTop(), { once: true });
-  window.addEventListener('pageshow', (e) => {
-    if (e.persisted) forceToTop(); // Safari/Firefox BFCache
-  });
-
-  // 4) Trước khi submit form, nhớ tab đang mở
-  document.querySelectorAll('#dataEntryTabsContent form').forEach(form => {
-    form.addEventListener('submit', () => {
-      const activeBtn = document.querySelector('#dataEntryTabs .nav-link.active');
-      const target = activeBtn ? activeBtn.getAttribute('data-bs-target') : null;
-      if (target) sessionStorage.setItem('dataEntryActiveTab', target);
-    });
-  });
-});
-
-/* --- Tab Nhà máy nước sạch --- */
-document.addEventListener('DOMContentLoaded', function () {
-  const cleanForm = document.getElementById('cleanWaterForm');
-  if (!cleanForm) return;
-
-  cleanForm.addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const dateVal = (cleanForm.querySelector('input[name="date"]') || {}).value;
-
-    // Các field cần kiểm tra
-    const fieldNames = ['electricity','pac_usage','naoh_usage','polymer_usage','clean_water_output','raw_water_jasan'];
-    const labels = {
-      electricity: 'Điện tiêu thụ (kWh)',
-      pac_usage: 'PAC (kg)',
-      naoh_usage: 'Xút (kg)',
-      polymer_usage: 'Polymer (kg)',
-      clean_water_output: 'Nước sạch sản xuất (m³)',
-      raw_water_jasan: 'Nước thô Jasan (m³)'
+        // selectors các tab (nếu đổi id tab thì chỉnh ở đây)
+        selectors: {
+        tabs: '#dataEntryTabs button[data-bs-toggle="tab"]',
+        wells:   { tab: '#wells-tab', pane: '#wells',
+                    head: '#wells-head', body: '#wells-body', summary: '#wells-summary',
+                    pagination: '#wells-pagination', range: '#wells-range' },
+        clean:   { tab: '#clean-water-tab', pane: '#clean-water',
+                    head: '#cw-head', body: '#cw-body', summary: '#cw-summary',
+                    pagination: '#cw-pagination', range: '#cw-range',
+                    form: '#cleanWaterForm' },
+        tanks:   { tab: '#tanks-tab', pane: '#tanks',
+                    head: '#tanks-head', body: '#tanks-body', summary: '#tanks-summary',
+                    pagination: '#tanks-pagination', range: '#tanks-range',
+                    form: '#tanksForm' },
+        wellsForm: '#wellForm',
+        customersForm: '#customerForm'
+        }
     };
+    </script>
 
-    // Chỉ liệt kê các ô đã nhập (kể cả "0")
-    const filled = fieldNames.map(n => {
-      const el = cleanForm.querySelector(`[name="${n}"]`);
-      const v = el ? (el.value || '').trim() : '';
-      return v === '' ? null : `- ${labels[n] || n}: ${v}`;
-    }).filter(Boolean);
-
-    if (!dateVal || filled.length === 0) { cleanForm.submit(); return; }
-
-    try {
-      // Gọi API kiểm tra tồn tại theo ngày
-      const url = `{{ url_for('clean_water_plant_exists') }}?date=${encodeURIComponent(dateVal)}`;
-      const res = await fetch(url, { credentials: 'same-origin' });
-      const data = await res.json();
-
-      if (data.exists) {
-        const ok = window.confirm(
-          `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước sạch.\n` +
-          `Bạn sắp ghi đè các trường sau:\n${filled.join('\n')}\n\nTiếp tục?`
-        );
-        if (!ok) return;
-        // Set cờ ghi đè để backend cho phép cập nhật
-        const ow = document.getElementById('overwrite-flag') || cleanForm.querySelector('input[name="overwrite"]');
-        if (ow) ow.value = '1';
-      }
-    } catch (_) { /* ignore lỗi mạng, vẫn submit */ }
-
-    cleanForm.submit();
-  });
-});
-
-/* Helpers chung */
-function getFilledNumericFields(form, names, labelsMap) {
-  // Trả danh sách {name, label, value} với các input có nhập (kể cả "0")
-  const out = [];
-  for (const n of names) {
-    const el = form.querySelector(`[name="${n}"]`);
-    if (!el) continue;
-    const raw = (el.value || '').trim();
-    if (raw === '') continue;
-    out.push({ name: n, label: labelsMap[n] || n, value: raw });
-  }
-  return out;
-}
-
-/* --- Tab Giếng khoan --- */
-document.addEventListener('DOMContentLoaded', function () {
-  const wellForm = document.getElementById('wellForm');
-  if (wellForm) {
-    wellForm.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      const dateVal = (wellForm.querySelector('input[name="date"]') || {}).value;
-      const allIds = Array.from(wellForm.querySelectorAll('input[name="well_ids"]')).map(i => i.value);
-
-      // Lọc các giếng đã nhập (kể cả "0")
-      const filled = allIds
-        .map(id => {
-          const el = wellForm.querySelector(`input[name="production_${id}"]`);
-          const raw = el ? (el.value || '').trim() : '';
-          return raw === '' ? null : { id: Number(id), value: raw };
-        })
-        .filter(Boolean);
-
-      if (!dateVal || filled.length === 0) {
-        wellForm.submit(); return;
-      }
-
-      // Gọi API kiểm tra chỉ với các giếng đã nhập
-      const idsParam = filled.map(f => f.id).join(',');
-      try {
-        const url = `{{ url_for('well_production_exists') }}?date=${encodeURIComponent(dateVal)}&well_ids=${encodeURIComponent(idsParam)}`;
-        const res = await fetch(url, { credentials: 'same-origin' });
-        const data = await res.json();
-
-        if (data.exists && Array.isArray(data.wells) && data.wells.length) {
-          // Lấy danh sách giếng đã nhập và đã có dữ liệu -> sẽ ghi đè
-          const existingSet = new Set(data.wells.map(Number));
-          const toOverwrite = filled.filter(f => existingSet.has(f.id));
-          if (toOverwrite.length) {
-            const lines = toOverwrite.map(f => `- Giếng ${f.id}: ${f.value} m³`).join('\n');
-            const ok = window.confirm(
-              `Đã có dữ liệu ngày ${dateVal} cho một số giếng.\n` +
-              `Bạn sắp ghi đè các giếng sau:\n${lines}\n\nTiếp tục?`
-            );
-            if (!ok) return;
-            // Gửi danh sách giếng cần ghi đè
-            document.getElementById('overwrite-ids').value = toOverwrite.map(f => f.id).join(',');
-          }
-        }
-      } catch (_) { /* bỏ qua lỗi mạng, vẫn submit */ }
-
-      wellForm.submit();
-    });
-  }
-});
-
-/* --- Tab Nước thải (NMNT 1/2) --- */
-function hasAnyValue(form, names) {
-  return names.some(n => {
-    const el = form.querySelector(`[name="${n}"]`);
-    const v = el ? (el.value || '').trim() : '';
-    return v !== '';
-  });
-}
-
-async function attachWastewaterFormHandler(formId, overwriteId, plantNumber) {
-  const form = document.getElementById(formId);
-  if (!form) return;
-
-  // Map tên input -> nhãn hiển thị
-  const numericFields = ['wastewater_meter','input_flow_tqt','output_flow_tqt','sludge_output','electricity','chemical_usage'];
-  const labelsMap = {
-    wastewater_meter: 'Đồng hồ nước thải',
-    input_flow_tqt: 'Lưu lượng đầu vào TQT',
-    output_flow_tqt: 'Lưu lượng đầu ra TQT',
-    sludge_output: 'Bùn thải',
-    electricity: 'Điện năng',
-    chemical_usage: 'Hóa chất'
-  };
-
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const dateVal = (form.querySelector('input[name="date"]') || {}).value;
-
-    // Chỉ kiểm tra khi có nhập ít nhất một trường
-    const filled = getFilledNumericFields(form, numericFields, labelsMap);
-    if (!dateVal || filled.length === 0) {
-      form.submit(); return;
-    }
-
-    try {
-      const url = `{{ url_for('wastewater_plant_exists') }}?date=${encodeURIComponent(dateVal)}&plant_numbers=${plantNumber}`;
-      const res = await fetch(url, { credentials: 'same-origin' });
-      const data = await res.json();
-
-      if (data.exists && Array.isArray(data.plants) && data.plants.includes(plantNumber)) {
-        const lines = filled.map(f => `- ${f.label}: ${f.value}`).join('\n');
-        const ok = window.confirm(
-          `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước thải ${plantNumber}.\n` +
-          `Bạn sắp ghi đè các trường sau:\n${lines}\n\nTiếp tục?`
-        );
-        if (!ok) return;
-        document.getElementById(overwriteId).value = '1';
-      }
-    } catch (_) { /* ignore mạng */ }
-
-    form.submit();
-  });
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-  attachWastewaterFormHandler('wastewaterForm1', 'overwrite-wastewater-1', 1);
-  attachWastewaterFormHandler('wastewaterForm2', 'overwrite-wastewater-2', 2);
-});
-
-/* --- Tab Khách hàng --- */
-document.addEventListener('DOMContentLoaded', function () {
-  const form = document.getElementById('customerForm');
-  if (!form) return;
-
-    // Filtering: search by company/contact + filter by type (daily/monthly)
-    const searchEl = document.getElementById('customer-search');
-    const filterEl = document.getElementById('customer-filter');
-    const tbodySelector = '#customer-table-body .customer-row';
-
-    function applyCustomerFilters() {
-        const term = (searchEl && searchEl.value ? searchEl.value.toLowerCase().trim() : '');
-        const type = (filterEl && filterEl.value) || '';
-        const rows = document.querySelectorAll(tbodySelector);
-        rows.forEach(row => {
-            const dailyRaw = (row.dataset.daily || '').toLowerCase();
-            const isDaily = (dailyRaw === 'true' || dailyRaw === '1');
-            const matchesType = !type || (type === 'daily' ? isDaily : !isDaily);
-            const text0 = (row.cells && row.cells[0] ? row.cells[0].textContent.toLowerCase() : '');
-            const matchesSearch = !term || text0.includes(term);
-            row.style.display = (matchesType && matchesSearch) ? '' : 'none';
-        });
-    }
-
-    if (searchEl) searchEl.addEventListener('input', applyCustomerFilters);
-    if (filterEl) filterEl.addEventListener('change', applyCustomerFilters);
-    // Initial run
-    applyCustomerFilters();
-
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const dateVal = (form.querySelector('input[name="date"]') || {}).value;
-
-    const ids = Array.from(form.querySelectorAll('input[name="customer_ids"]'))
-      .map(i => Number(i.value)).filter(Boolean);
-
-    const filled = ids.map(id => {
-      const cw = (form.querySelector(`input[name="clean_water_${id}"]`)?.value || '').trim();
-      const ww = (form.querySelector(`input[name="wastewater_${id}"]`)?.value || '').trim();
-      return (cw !== '' || ww !== '') ? { id, cw, ww } : null;
-    }).filter(Boolean);
-
-    if (!dateVal || filled.length === 0) { form.submit(); return; }
-
-    try {
-      const url = `{{ url_for('data_entry.customer_readings_exists') }}?date=${encodeURIComponent(dateVal)}&customer_ids=${encodeURIComponent(filled.map(x=>x.id).join(','))}`;
-      const res = await fetch(url, { credentials: 'same-origin' });
-      const data = await res.json();
-
-      if (data.exists && Array.isArray(data.customers) && data.customers.length) {
-        const existSet = new Set(data.customers.map(Number));
-        const toOverwrite = filled.filter(f => existSet.has(f.id));
-        if (toOverwrite.length) {
-          const lines = toOverwrite.map(it => {
-            const parts = [];
-            if (it.cw !== '') parts.push(`- Nước sạch: ${it.cw}`);
-            if (it.ww !== '') parts.push(`- Nước thải: ${it.ww}`);
-            return `KH ${it.id}:\n${parts.join('\n')}`;
-          }).join('\n');
-          const ok = window.confirm(
-            `Đã có dữ liệu ngày ${dateVal} cho một số khách hàng.\n` +
-            `Bạn sắp ghi đè dữ liệu cho các khách hàng sau:\n\n${lines}\n\nTiếp tục?`
-          );
-          if (!ok) return;
-          document.getElementById('overwrite-customer-ids').value = toOverwrite.map(x => x.id).join(',');
-        }
-      }
-    } catch (_) { /* ignore */ }
-
-    form.submit();
-  });
-});
-
-/* --- Tab Bể chứa: xác nhận ghi đè --- */
-document.addEventListener('DOMContentLoaded', function () {
-    const form = document.getElementById('tanksForm');
-    if (!form) return;
-
-    form.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        const dateVal = (form.querySelector('input[name="date"]') || {}).value;
-        const entries = Array.from(form.querySelectorAll('input[name^="level_"]'))
-            .map(inp => ({ id: Number(inp.name.split('_')[1]), raw: (inp.value||'').trim() }))
-            .filter(x => x.raw !== '' && !Number.isNaN(x.id));
-
-        if (!dateVal || entries.length === 0) { form.submit(); return; }
-
-        try {
-            const idsParam = entries.map(x => x.id).join(',');
-            const url = `{{ url_for('data_entry.water_tank_level_exists') }}?date=${encodeURIComponent(dateVal)}&tank_ids=${encodeURIComponent(idsParam)}`;
-            const res = await fetch(url, { credentials: 'same-origin' });
-            const data = await res.json();
-            if (data.exists && Array.isArray(data.tanks) && data.tanks.length) {
-                const existSet = new Set(data.tanks.map(Number));
-                const toOverwrite = entries.filter(x => existSet.has(x.id));
-                if (toOverwrite.length) {
-                    const lines = toOverwrite.map(x => `- Bể ${x.id}: ${x.raw} m³`).join('\n');
-                    const ok = window.confirm(
-                        `Đã có dữ liệu ngày ${dateVal} cho một số bể chứa.\n` +
-                        `Bạn sắp ghi đè mức nước cho:\n${lines}\n\nTiếp tục?`
-                    );
-                    if (!ok) return;
-                }
-            }
-        } catch (_) { /* ignore lỗi mạng, vẫn submit */ }
-
-        form.submit();
-    });
-});
-
-// --- Progress bar BỂ CHỨA theo % ---
-(function () {
-  // Cập nhật 1 thanh theo giá trị nhập
-  function updateTankBar(tankId, rawValue) {
-    const bar = document.querySelector(`.progress-bar[data-tank-id="${tankId}"]`);
-    if (!bar) return;
-
-    const capacity = parseFloat(bar.dataset.capacity) || 0;
-    const val = Math.max(0, parseFloat(rawValue));
-    const pct = capacity > 0 && isFinite(val)
-      ? (val / capacity) * 100
-      : 0;
-
-    const pctStr = `${Math.round(pct)}%`;
-    bar.style.width = pctStr;
-    bar.textContent = pctStr;
-
-    // A11y + trạng thái
-    bar.setAttribute('aria-valuemin', '0');
-    bar.setAttribute('aria-valuemax', '100');
-    bar.setAttribute('aria-valuenow', String(Math.round(pct)));
-
-    // Đổi màu cảnh báo (tuỳ ý)
-    bar.classList.toggle('bg-danger', val > capacity);
-    bar.classList.toggle('bg-warning', val > 0 && val < capacity * 0.1);
-  }
-
-  // Lắng nghe mọi ô input level_*
-  function bindTankInputs(scope = document) {
-    scope.querySelectorAll('input[name^="level_"]').forEach(inp => {
-      // cập nhật khi gõ
-      inp.addEventListener('input', () => {
-        const tankId = inp.name.split('_')[1];
-        updateTankBar(tankId, inp.value);
-      });
-      // khởi tạo nếu có sẵn value (VD: back/forward cache hoặc autofill)
-      if (inp.value !== '') {
-        const tankId = inp.name.split('_')[1];
-        updateTankBar(tankId, inp.value);
-      }
-    });
-  }
-
-  // Chạy khi DOM xong
-  document.addEventListener('DOMContentLoaded', () => {
-    // Nếu tab Tanks đang ACTIVE lúc load, bind ngay
-    const tanksPane = document.querySelector('#tanks');
-    if (tanksPane && tanksPane.classList.contains('active')) {
-      bindTankInputs(tanksPane);
-    }
-
-    // Khi đổi tab sang Bể chứa thì mới bind (tránh làm thừa ở tab ẩn)
-    document.querySelectorAll('#dataEntryTabs button[data-bs-toggle="tab"]').forEach(btn => {
-      btn.addEventListener('shown.bs.tab', (e) => {
-        if (e.target.getAttribute('data-bs-target') === '#tanks') {
-          bindTankInputs(document.querySelector('#tanks'));
-        }
-      });
-    });
-  });
-})();
-</script>
+    <script src="{{ url_for('static', filename='js/data_entry.js') }}"></script>
 {% endblock %}

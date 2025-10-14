@@ -1,6 +1,6 @@
 from app import app
 # Đăng ký các blueprint đã tách
-from blueprints import auth_bp, dashboard_bp, data_entry_bp, reports_bp, charts_bp, customers_bp, admin_bp
+from blueprints import auth_bp, dashboard_bp, data_entry_bp, reports_bp, charts_bp, customers_bp, admin_bp,history_bp
 
 # ...existing code...
 
@@ -11,6 +11,7 @@ app.register_blueprint(reports_bp)
 app.register_blueprint(charts_bp)
 app.register_blueprint(customers_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(history_bp)
 
 # ---- Legacy endpoint aliases (giữ nguyên url_for('...') kiểu cũ) ----
 def add_alias(rule: str, endpoint: str, real_endpoint: str, methods=None):
