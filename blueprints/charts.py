@@ -242,7 +242,7 @@ def dashboard_data():
 def chart_details(chart_type):
     chart_configs = {
         'wells': {'name':'Sản lượng tổng các giếng khoan theo ngày','icon':'fa-water','description':'Theo dõi sản lượng nước theo giếng khoan'},
-        'clean-water': {'name':'Sản lượng nước sạch từ nhà máy','icon':'fa-tint','description':'Bao gồm nước từ giếng khoan + Jasan'},
+        'clean-water': {'name':'Sản lượng nước sạch cấp cho Khách hàng','icon':'fa-tint','description':'Bao gồm nước từ giếng khoan + Jasan'},
         'wastewater': {'name':'Lưu lượng nước thải qua nhà máy xử lý','icon':'fa-recycle','description':'NMNT1/2'},
         'customers': {'name':'Tiêu thụ nước sạch của TOP 4 khách hàng lớn nhất','icon':'fa-users','description':'Nước sạch và nước thải'},
     }
@@ -744,23 +744,41 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
 
     # --- Dải ngày để fill dữ liệu trống ---
     dates = []
+    calc_start = start_date - timedelta(days=1)
     cur = start_date
     while cur <= end_date:
         dates.append(cur)
         cur += timedelta(days=1)
 
-    # --- Định nghĩa biểu thức delta cho NS/NT ---
-    total_ns = (
-        (CustomerReading.clean_water_reading +
-         func.coalesce(getattr(CustomerReading, "clean_water_reading_2", 0), 0))
-    )
-    lag_total_ns = func.lag(total_ns).over(
+    # Đồng hồ 1
+    r1 = func.coalesce(CustomerReading.clean_water_reading, 0)
+    lag_r1 = func.lag(r1).over(
         partition_by=CustomerReading.customer_id,
         order_by=CustomerReading.date
     )
+    delta1 = case(
+        (((r1 - func.coalesce(lag_r1, r1)) < 0), 0),
+        else_=(r1 - func.coalesce(lag_r1, r1))
+    )
+
+    # Đồng hồ 2 (có thể null với KH chỉ có 1 đồng hồ)
+    r2 = func.coalesce(getattr(CustomerReading, "clean_water_reading_2", 0), 0)
+    lag_r2 = func.lag(r2).over(
+        partition_by=CustomerReading.customer_id,
+        order_by=CustomerReading.date
+    )
+    delta2 = case(
+        (((r2 - func.coalesce(lag_r2, r2)) < 0), 0),
+        else_=(r2 - func.coalesce(lag_r2, r2))
+    )
+    companies_2_dh = [
+        'Cty TNHH Dệt và Nhuộm Hưng Yên',
+        'Cty TNHH dệt may Lee Hing Việt Nam'
+    ]
+    # Áp hệ số: đồng hồ 1 * 10, đồng hồ 2 * 1
     clean_delta_expr = case(
-        (((total_ns - func.coalesce(lag_total_ns, total_ns)) < 0), 0),
-        else_=(total_ns - func.coalesce(lag_total_ns, total_ns))
+        (Customer.company_name.in_(companies_2_dh), (delta1 * 10) + delta2),
+        else_=delta1
     )
 
     # Tổng chỉ số NT dùng để trừ: ưu tiên đồng hồ, không có thì dùng tính theo tỉ lệ
@@ -791,7 +809,7 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
         )
         .join(Customer, Customer.id == CustomerReading.customer_id)
         .filter(
-            CustomerReading.date >= start_date,
+            CustomerReading.date >= calc_start,
             CustomerReading.date <= end_date,
             Customer.is_active.is_(True),
             Customer.daily_reading.is_(True),
@@ -822,7 +840,9 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
             delta_sq_all.c.clean_delta,
             delta_sq_all.c.wastewater_delta
         )
-        .filter(*( [delta_sq_all.c.customer_id.in_(customer_ids)] if customer_ids else [] ))
+        .filter(
+            delta_sq_all.c.date >= start_date,
+            *( [delta_sq_all.c.customer_id.in_(customer_ids)] if customer_ids else [] ))
         .subquery()
     )
 
