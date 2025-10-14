@@ -137,6 +137,7 @@
     <text x="336.95458459854126" y="417.70905047655106" class="zone-text" fill="white" id="svg_50">NHÀ MÁY</text>
     <text x="336.95458459854126" y="432.70905047655106" class="zone-text" fill="white" id="svg_51">NƯỚC THẢI 1</text>
     <text x="336.95458459854126" y="460.70905047655106" class="zone-text" fill="white" font-size="10" id="svg_54">TQT, Bùn, Điện</text>
+    <text x="345.0277092491627" y="472.6557352860148" class="zone-text" fill="white" font-size="10" id="svg_62" transform="matrix(0.9647266260409424,0,0,0.94074068538157,6.927409508753158,30.567007778769202) ">Hóa chất</text>
 
     <!-- Nhà máy nước thải 2 -->
   </g><g class="zone wastewater2-zone" data-zone="wastewater-plant-2" id="svg_55">

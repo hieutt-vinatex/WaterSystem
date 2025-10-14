@@ -75,65 +75,116 @@ def clean_water_plant_exists():
 # NS cấp ngày n = Tổng NS (Bể 1200+2000+4000) ngày n-1
 #                + Tổng SL giếng khoan ngày n
 #                - Tổng NS (Bể 1200+2000+4000) ngày n
-def _compute_clean_water_output_for_date(the_date: date):
+# def _compute_clean_water_output_for_date(the_date: date):
+#     try:
+#         # Tìm 3 bể clean nước theo nhãn 1200/2000/4000 (tên có thể là "Bể chứa 1200"...)
+#         tank_ids = []
+#         missing_labels = []
+#         for label in ("1200", "2000", "4000"):
+#             tank = WaterTank.query.filter(
+#                 WaterTank.tank_type == 'clean_water',
+#                 WaterTank.name.ilike(f"%{label}%")
+#             ).first()
+#             if tank:
+#                 tank_ids.append(tank.id)
+#             else:
+#                 missing_labels.append(label)
+
+#         if missing_labels:
+#             return {'ready': False, 'value': None, 'detail': {'missing_tanks': missing_labels}}
+
+#         prev_date = the_date - timedelta(days=1)
+
+#         prev_levels = db.session.query(WaterTankLevel.tank_id, WaterTankLevel.level) \
+#             .filter(WaterTankLevel.date == prev_date, WaterTankLevel.tank_id.in_(tank_ids)).all()
+#         today_levels = db.session.query(WaterTankLevel.tank_id, WaterTankLevel.level) \
+#             .filter(WaterTankLevel.date == the_date, WaterTankLevel.tank_id.in_(tank_ids)).all()
+
+#         prev_map = {tid: lvl for tid, lvl in prev_levels}
+#         today_map = {tid: lvl for tid, lvl in today_levels}
+
+#         missing_prev = [tid for tid in tank_ids if tid not in prev_map]
+#         missing_today = [tid for tid in tank_ids if tid not in today_map]
+
+#         well_sum = db.session.query(func.sum(WellProduction.production)) \
+#             .filter(WellProduction.date == the_date).scalar()
+
+#         ready = (not missing_prev) and (not missing_today) and (well_sum is not None)
+#         if not ready:
+#             return {
+#                 'ready': False,
+#                 'value': None,
+#                 'detail': {
+#                     'missing_prev_tanks': missing_prev,
+#                     'missing_today_tanks': missing_today,
+#                     'well_sum_today': float(well_sum) if well_sum is not None else None,
+#                 }
+#             }
+
+#         sum_prev = float(sum(prev_map[tid] or 0.0 for tid in tank_ids))
+#         sum_today = float(sum(today_map[tid] or 0.0 for tid in tank_ids))
+#         sum_wells = float(well_sum or 0.0)
+#         value = sum_prev + sum_wells - sum_today
+
+#         return {'ready': True, 'value': value, 'detail': {
+#             'sum_prev_tanks': sum_prev,
+#             'sum_today_tanks': sum_today,
+#             'sum_wells_today': sum_wells,
+#         }}
+#     except Exception as e:
+#         logger.exception("Failed to compute clean water output: %s", e)
+#         return {'ready': False, 'value': None, 'detail': {'error': str(e)}}
+def _clean_water_production_today_entry(today):
+    # Lấy tổng production của giếng ngày hôm nay
+    cur_sum = db.session.query(
+        db.func.sum(WellProduction.production)
+    ).filter(WellProduction.date == today).scalar() or 0
+    
+    # Kiểm tra xem có phải ngày đầu tháng không
+    if today.day == 1:
+        # Ngày đầu tháng: sum(production) - 0
+        return float(cur_sum)
+    else:
+        # Các ngày khác: today - yesterday
+        prev_day = today - timedelta(days=1)
+        prev_sum = db.session.query(
+            db.func.sum(WellProduction.production)
+        ).filter(WellProduction.date == prev_day).scalar() or 0
+        
+        return float(cur_sum) - float(prev_sum)
+def _compute_clean_water_output_for_date(the_date: date, jasan_raw:float):
+    """
+    NS SX ngày n = 0.98 * ( H(n) - J(n) )
+    H(n): tổng sản lượng giếng trong ngày n (sum(today) - sum(yesterday))
+    J(n): Jasan thô trong ngày n
+    """
     try:
-        # Tìm 3 bể clean nước theo nhãn 1200/2000/4000 (tên có thể là "Bể chứa 1200"...)
-        tank_ids = []
-        missing_labels = []
-        for label in ("1200", "2000", "4000"):
-            tank = WaterTank.query.filter(
-                WaterTank.tank_type == 'clean_water',
-                WaterTank.name.ilike(f"%{label}%")
-            ).first()
-            if tank:
-                tank_ids.append(tank.id)
-            else:
-                missing_labels.append(label)
+        # H(n): tổng giếng theo ngày
+        wells_delta = float(_clean_water_production_today_entry(the_date))  # đã là today - yesterday
+        print('test',wells_delta)
 
-        if missing_labels:
-            return {'ready': False, 'value': None, 'detail': {'missing_tanks': missing_labels}}
+        # J(n): Jasan thô trong ngày
+        # jasan_raw = db.session.query(
+        #     db.func.sum(CleanWaterPlant.raw_water_jasan)
+        # ).filter(CleanWaterPlant.date == the_date).scalar() or 0.0
+        jasan_raw = max(float(jasan_raw), 0.0)
 
-        prev_date = the_date - timedelta(days=1)
+        # NS SX ngày (clamp về 0 nếu âm)
+        value = 0.98 * max(wells_delta - jasan_raw, 0.0)
 
-        prev_levels = db.session.query(WaterTankLevel.tank_id, WaterTankLevel.level) \
-            .filter(WaterTankLevel.date == prev_date, WaterTankLevel.tank_id.in_(tank_ids)).all()
-        today_levels = db.session.query(WaterTankLevel.tank_id, WaterTankLevel.level) \
-            .filter(WaterTankLevel.date == the_date, WaterTankLevel.tank_id.in_(tank_ids)).all()
-
-        prev_map = {tid: lvl for tid, lvl in prev_levels}
-        today_map = {tid: lvl for tid, lvl in today_levels}
-
-        missing_prev = [tid for tid in tank_ids if tid not in prev_map]
-        missing_today = [tid for tid in tank_ids if tid not in today_map]
-
-        well_sum = db.session.query(func.sum(WellProduction.production)) \
-            .filter(WellProduction.date == the_date).scalar()
-
-        ready = (not missing_prev) and (not missing_today) and (well_sum is not None)
-        if not ready:
-            return {
-                'ready': False,
-                'value': None,
-                'detail': {
-                    'missing_prev_tanks': missing_prev,
-                    'missing_today_tanks': missing_today,
-                    'well_sum_today': float(well_sum) if well_sum is not None else None,
-                }
+        return {
+            'ready': True,
+            'value': value,
+            'detail': {
+                'wells_delta': wells_delta,   # H(n)
+                'jasan_raw': jasan_raw,       # J(n)
+                'factor': 0.98
             }
-
-        sum_prev = float(sum(prev_map[tid] or 0.0 for tid in tank_ids))
-        sum_today = float(sum(today_map[tid] or 0.0 for tid in tank_ids))
-        sum_wells = float(well_sum or 0.0)
-        value = sum_prev + sum_wells - sum_today
-
-        return {'ready': True, 'value': value, 'detail': {
-            'sum_prev_tanks': sum_prev,
-            'sum_today_tanks': sum_today,
-            'sum_wells_today': sum_wells,
-        }}
+        }
     except Exception as e:
-        logger.exception("Failed to compute clean water output: %s", e)
+        logger.exception("Failed to compute daily clean water output: %s", e)
         return {'ready': False, 'value': None, 'detail': {'error': str(e)}}
+
 
 # Helper: ở lại đúng tab
 def _redirect_to_tab(anchor: str):
@@ -297,8 +348,12 @@ def submit_clean_water_plant():
             'raw_water_jasan': 'float',
         }
 
+        # 1) Lấy Jasan thô từ form (mặc định 0 nếu bỏ trống)
+        jasan_val = parse_float_opt(request.form.get('raw_water_jasan'))
+        if jasan_val is None:
+            jasan_val = 0.0
         # Tính tự động theo dữ liệu bể & giếng nếu có đủ dữ liệu
-        compute_res = _compute_clean_water_output_for_date(entry_date)
+        compute_res = _compute_clean_water_output_for_date(entry_date,jasan_val)
 
         if existing:
             # Luôn cập nhật các trường đã nhập (không cần cờ overwrite)

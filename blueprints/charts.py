@@ -98,14 +98,16 @@ def _calculate_tank_inventory(tank_id: int, level: float) -> float:
     - Tank 2: tồn = (12 - level) * 160  
     - Tank 3: tồn = (13 - level) * 300
     """
-    if tank_id == 1:
-        return (9 - level) * 115
-    elif tank_id == 2:
-        return (12 - level) * 160
-    elif tank_id == 3:
-        return (13 - level) * 300
-    else:
-        return 0.0  # Bể không xác định
+    # if tank_id == 1:
+    #     return (9 - level) * 115
+    # elif tank_id == 2:
+    #     return (12 - level) * 160
+    # elif tank_id == 3:
+    #     return (13 - level) * 300
+    # else:
+    #     return 0.0  # Bể không xác định
+    """level đã là thể tích m³ trong DB -> trả về trực tiếp."""
+    return float(level or 0.0)
 
 
 def _get_tank_inventory_yesterday(yesterday):
@@ -237,10 +239,10 @@ def dashboard_data():
 @login_required
 def chart_details(chart_type):
     chart_configs = {
-        'wells': {'name':'Sản lượng tổng các giếng khoan theo ngày','icon':'fa-water','description':'Theo dõi sản lượng nước'},
+        'wells': {'name':'Sản lượng tổng các giếng khoan theo ngày','icon':'fa-water','description':'Theo dõi sản lượng nước theo giếng khoan'},
         'clean-water': {'name':'Sản lượng nước sạch từ nhà máy','icon':'fa-tint','description':'Bao gồm nước từ giếng khoan + Jasan'},
         'wastewater': {'name':'Lưu lượng nước thải qua nhà máy xử lý','icon':'fa-recycle','description':'NMNT1/2'},
-        'customers': {'name':'Tiêu thụ nước của khách hàng','icon':'fa-users','description':'Nước sạch và nước thải'},
+        'customers': {'name':'Tiêu thụ nước sạch của TOP 4 khách hàng lớn nhất','icon':'fa-users','description':'Nước sạch và nước thải'},
     }
     config = chart_configs.get(chart_type)
     if not config:
@@ -522,24 +524,37 @@ def generate_clean_water_details(start_date, end_date):
                 record = r
                 break
         
-        if record:
-            clean_output = float(record.clean_water_output or 0)
-            raw_jasan = float(record.raw_water_jasan or 0)
-            total = clean_output + raw_jasan
-        else:
-            clean_output = 0
-            raw_jasan = 0
-            total = 0
-        # Also include the computed daily production used for chart
-        daily_val = float(_get_daily_production(d, d - timedelta(days=1)))
-            
+        # Lấy Jasan thô (J(n))
+        jasan_raw = float(record.raw_water_jasan or 0) if record else 0.0
+
+        # H(n): tổng sản lượng giếng trong ngày n (today - yesterday)
+        wells_delta = float(_clean_water_production_today(d))
+
+        # (M4+N4+O4)-(M5+N5+O5): tồn kho hôm qua - hôm nay
+        prev_day = d - timedelta(days=1)
+        inventory_yesterday = float(_get_tank_inventory_yesterday(prev_day))
+        inventory_today = float(_get_tank_inventory_today(d))
+
+        print(inventory_yesterday,inventory_today)
+
+        # 2.2 Nước sạch cấp cho KH trong ngày
+        total = 0.98 * max(wells_delta - jasan_raw, 0.0) + (inventory_yesterday - inventory_today)
+
+        # Nếu cần, vẫn hiển thị riêng clean_output đã lưu trong DB (nếu có)
+        clean_output = float(record.clean_water_output or 0) if record else 0.0
+
         table_data.append({
             'date': d.strftime('%d/%m/%Y'),
             'clean_water_output': clean_output,
-            'raw_water_jasan': raw_jasan,
+            'raw_water_jasan': jasan_raw,
             'total_water': total,
-            # 'daily_production': daily_val
+            #debug only
+            # 'wells_delta':wells_delta,
+            # 'jasan_raw':jasan_raw, 
+            # 'inventory_yesterday':inventory_yesterday,
+            # 'inventory_today':inventory_today
         })
+
     
     return {
         'chart_data': chart_data,
