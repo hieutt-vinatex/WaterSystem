@@ -93,7 +93,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             // Gọi API kiểm tra tồn tại theo ngày
-            const url = `${window.DATA_ENTRY_CONFIG.cleanWaterExists}?date=${encodeURIComponent(dateVal)}`;
+            const url = `${window.DATA_ENTRY_CONFIG.cleanWaterExists
+                }?date=${encodeURIComponent(dateVal)}`;
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
 
@@ -160,7 +161,10 @@ document.addEventListener("DOMContentLoaded", function () {
             // Gọi API kiểm tra chỉ với các giếng đã nhập
             const idsParam = filled.map((f) => f.id).join(",");
             try {
-                const url = `${window.DATA_ENTRY_CONFIG.wellProductionExists}?date=${encodeURIComponent(dateVal)}&well_ids=${encodeURIComponent(idsParam)}`;
+                const url = `${window.DATA_ENTRY_CONFIG.wellProductionExists
+                    }?date=${encodeURIComponent(dateVal)}&well_ids=${encodeURIComponent(
+                        idsParam
+                    )}`;
                 const res = await fetch(url, { credentials: "same-origin" });
                 const data = await res.json();
 
@@ -235,7 +239,8 @@ async function attachWastewaterFormHandler(formId, overwriteId, plantNumber) {
         }
 
         try {
-            const url = `${window.DATA_ENTRY_CONFIG.wastewaterExists}?date=${encodeURIComponent(dateVal)}&plant_numbers=${plantNumber}`;
+            const url = `${window.DATA_ENTRY_CONFIG.wastewaterExists
+                }?date=${encodeURIComponent(dateVal)}&plant_numbers=${plantNumber}`;
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
 
@@ -322,7 +327,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         try {
-            const url = `${window.DATA_ENTRY_CONFIG.customerReadingsExists}?date=${encodeURIComponent(dateVal)}&customer_ids=${encodeURIComponent(filled.map(x=>x.id).join(','))}`;
+            const url = `${window.DATA_ENTRY_CONFIG.customerReadingsExists
+                }?date=${encodeURIComponent(dateVal)}&customer_ids=${encodeURIComponent(
+                    filled.map((x) => x.id).join(",")
+                )}`;
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
 
@@ -382,7 +390,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             const idsParam = entries.map((x) => x.id).join(",");
-            const url = `${window.DATA_ENTRY_CONFIG.tankLevelExists}?date=${encodeURIComponent(dateVal)}&tank_ids=${encodeURIComponent(idsParam)}`;
+            const url = `${window.DATA_ENTRY_CONFIG.tankLevelExists
+                }?date=${encodeURIComponent(dateVal)}&tank_ids=${encodeURIComponent(
+                    idsParam
+                )}`;
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
             if (data.exists && Array.isArray(data.tanks) && data.tanks.length) {
@@ -837,3 +848,243 @@ document.addEventListener("DOMContentLoaded", function () {
         btn?.addEventListener("shown.bs.tab", () => loadTanks(1));
     });
 })();
+
+// ===== Lịch sử NƯỚC THẢI (pivot) =====
+(function () {
+    const els = {
+        head: document.getElementById("ww-head"),
+        body: document.getElementById("ww-body"),
+        sum: document.getElementById("ww-summary"),
+        pag: document.getElementById("ww-pagination"),
+        range: document.getElementById("ww-range"),
+        p1: document.getElementById("ww-p1"),
+        p2: document.getElementById("ww-p2"),
+        agg: document.getElementById("ww-aggregate"),
+        extra: document.getElementById("ww-extra"),
+    };
+    if (!els.head) return;
+
+    function fmt(v) {
+        return typeof v === "number" ? v.toLocaleString("vi-VN") : v ?? "";
+    }
+
+    async function load(page = 1) {
+        const range = parseInt(els.range.value || "30", 10);
+        const plants = [
+            els.p1.checked ? 1 : null,
+            els.p2.checked ? 2 : null,
+        ].filter(Boolean);
+        if (!plants.length) {
+            els.body.innerHTML = `<tr><td class="text-center py-3">Chọn ít nhất 1 nhà máy</td></tr>`;
+            els.head.innerHTML = "<th>Ngày</th>";
+            els.sum.textContent = "—";
+            els.pag.innerHTML = "";
+            return;
+        }
+
+        const params = new URLSearchParams({
+            page,
+            range_days: range,
+            aggregate: String(els.agg.checked),
+            include_extra: String(els.extra.checked),
+            plant_numbers: plants.join(","),
+        });
+
+        els.body.innerHTML = `<tr><td class="text-center py-3" colspan="999">Đang tải...</td></tr>`;
+
+        try {
+            const res = await fetch(
+                `${window.DATA_ENTRY_CONFIG.wastewaterPivotApi}?${params.toString()}`
+            );
+            const data = await res.json();
+            const cols = data.columns || ["date"];
+            const rows = data.rows || [];
+            const meta = data.meta || {
+                page: 1,
+                pages: 1,
+                total: 0,
+                range_days: range,
+            };
+
+            els.head.innerHTML = cols
+                .map((c) => `<th>${c === "date" ? "Ngày" : c}</th>`)
+                .join("");
+            if (!rows.length) {
+                els.body.innerHTML = `<tr><td class="text-center py-3" colspan="${cols.length}">Không có dữ liệu</td></tr>`;
+            } else {
+                els.body.innerHTML = rows
+                    .map((r) => {
+                        const tds = cols
+                            .map((c) =>
+                                c === "date"
+                                    ? `<td>${r[c] || ""}</td>`
+                                    : `<td>${fmt(r[c])}</td>`
+                            )
+                            .join("");
+                        return `<tr>${tds}</tr>`;
+                    })
+                    .join("");
+            }
+            els.sum.textContent = `${(meta.total || 0).toLocaleString(
+                "vi-VN"
+            )} ngày trong ${meta.range_days} ngày gần nhất • Trang ${meta.page}/${meta.pages || 1
+                }`;
+            buildPag(meta.page, meta.pages || 1, load);
+        } catch (e) {
+            console.error(e);
+            els.body.innerHTML = `<tr><td class="text-danger text-center py-3" colspan="999">Lỗi tải dữ liệu</td></tr>`;
+            els.sum.textContent = "—";
+            els.pag.innerHTML = "";
+        }
+    }
+
+    function buildPag(cur, total, reload) {
+        const maxButtons = 5;
+        let start = Math.max(1, cur - Math.floor(maxButtons / 2));
+        let end = start + maxButtons - 1;
+        if (end > total) {
+            end = total;
+            start = Math.max(1, end - maxButtons + 1);
+        }
+        const prevDis = cur <= 1 ? " disabled" : "";
+        const nextDis = cur >= total ? " disabled" : "";
+        let html = `<li class="page-item${prevDis}"><a class="page-link" href="#" data-p="${cur - 1
+            }">&laquo;</a></li>`;
+        for (let p = start; p <= end; p++) {
+            const act = p === cur ? " active" : "";
+            html += `<li class="page-item${act}"><a class="page-link" href="#" data-p="${p}">${p}</a></li>`;
+        }
+        html += `<li class="page-item${nextDis}"><a class="page-link" href="#" data-p="${cur + 1
+            }">&raquo;</a></li>`;
+        els.pag.innerHTML = html;
+        els.pag.querySelectorAll("a.page-link").forEach((a) => {
+            a.addEventListener("click", (e) => {
+                e.preventDefault();
+                const p = parseInt(a.getAttribute("data-p"), 10);
+                if (!isNaN(p)) reload(p);
+            });
+        });
+    }
+
+    // Bind
+    ["change", "click"].forEach((ev) => {
+        els.range.addEventListener(ev, () => load(1));
+        els.p1.addEventListener(ev, () => load(1));
+        els.p2.addEventListener(ev, () => load(1));
+        els.agg.addEventListener(ev, () => load(1));
+        els.extra.addEventListener(ev, () => load(1));
+    });
+    document.addEventListener("DOMContentLoaded", () => {
+        const pane = document.querySelector("#wastewater");
+        const btn = document.querySelector("#wastewater-tab");
+        if (pane?.classList.contains("active")) load(1);
+        btn?.addEventListener("shown.bs.tab", () => load(1));
+    });
+})();
+
+// ===== Lịch sử KHÁCH HÀNG (list) =====
+(function () {
+  const CFG = window.DATA_ENTRY_CONFIG || {};
+  const sel = (CFG.selectors && CFG.selectors.customersHistory) || {};
+  const els = {
+    head: document.querySelector(sel.head || '#cust-head'),
+    body: document.querySelector(sel.body || '#cust-body'),
+    sum:  document.querySelector(sel.summary || '#cust-summary'),
+    pag:  document.querySelector(sel.pagination || '#cust-pagination'),
+    range:document.querySelector(sel.range || '#cust-range'),
+    type: document.querySelector(sel.type || '#cust-type'),
+    search:document.querySelector(sel.search || '#cust-search'),
+    tabBtn: document.querySelector(sel.tab || '#customers-tab'),
+    pane:  document.querySelector(sel.pane || '#customers')
+  };
+  if (!els.head) return;
+
+  function fmt(v){ return (typeof v==='number') ? v.toLocaleString('vi-VN') : (v ?? ''); }
+
+  async function load(page=1){
+    const params = new URLSearchParams({
+      page,
+      range_days: parseInt(els.range?.value || '30', 10)
+    });
+    const t = (els.type?.value || '').trim();
+    if (t) params.set('type', t);
+    const q = (els.search?.value || '').trim();
+    if (q) params.set('q', q);
+
+    els.body.innerHTML = `<tr><td class="text-center py-3" colspan="8">Đang tải...</td></tr>`;
+
+    try{
+      const res = await fetch(`${CFG.customerHistoryApi}?${params.toString()}`);
+      const data = await res.json();
+
+      const rows = data.rows || [];
+      const meta = data.meta || { page:1, pages:1, total:0, range_days: params.get('range_days') };
+
+      if (!rows.length){
+        els.body.innerHTML = `<tr><td class="text-center py-3" colspan="8">Không có dữ liệu</td></tr>`;
+      } else {
+        els.body.innerHTML = rows.map(r => {
+          return `
+            <tr>
+              <td>${r.date || ''}</td>
+              <td>${r.company || ''}</td>
+              <td>${r.type || ''}</td>
+              <td>${fmt(r.ratio)}</td>
+              <td>${fmt(r.clean_1)}</td>
+              <td>${fmt(r.clean_2)}</td>
+              <td>${fmt(r.wastewater)}</td>
+              <td>${r.source === 'actual' ? 'Nhập tay' : 'Tính theo tỷ lệ'}</td>
+            </tr>`;
+        }).join('');
+      }
+
+      els.sum.textContent = `${(meta.total||0).toLocaleString('vi-VN')} bản ghi trong ${meta.range_days} ngày gần nhất • Trang ${meta.page}/${meta.pages||1}`;
+      buildPag(meta.page, meta.pages || 1);
+    }catch(e){
+      console.error(e);
+      els.body.innerHTML = `<tr><td class="text-danger text-center py-3" colspan="8">Lỗi tải dữ liệu</td></tr>`;
+      els.sum.textContent = '—';
+      els.pag.innerHTML = '';
+    }
+  }
+
+  function buildPag(cur, total){
+    const maxButtons = 5;
+    let start = Math.max(1, cur - Math.floor(maxButtons/2));
+    let end = start + maxButtons - 1;
+    if (end > total) { end = total; start = Math.max(1, end - maxButtons + 1); }
+    const prevDis = (cur <= 1) ? ' disabled' : '';
+    const nextDis = (cur >= total) ? ' disabled' : '';
+
+    let html = `<li class="page-item${prevDis}"><a class="page-link" href="#" data-p="${cur-1}">&laquo;</a></li>`;
+    for (let p = start; p <= end; p++) {
+      const act = (p === cur) ? ' active' : '';
+      html += `<li class="page-item${act}"><a class="page-link" href="#" data-p="${p}">${p}</a></li>`;
+    }
+    html += `<li class="page-item${nextDis}"><a class="page-link" href="#" data-p="${cur+1}">&raquo;</a></li>`;
+
+    els.pag.innerHTML = html;
+    els.pag.querySelectorAll('a.page-link').forEach(a=>{
+      a.addEventListener('click', e=>{
+        e.preventDefault();
+        const p = parseInt(a.getAttribute('data-p'), 10);
+        if (!isNaN(p)) load(p);
+      });
+    });
+  }
+
+  // Khởi chạy khi mở tab Khách hàng và khi thay filter/search
+  function onReady(fn){ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',fn);} else { fn(); } }
+  onReady(() => {
+    if (els.pane?.classList.contains('active')) load(1);
+    els.tabBtn?.addEventListener('shown.bs.tab', () => load(1));
+    els.range?.addEventListener('change', () => load(1));
+    els.type?.addEventListener('change', () => load(1));
+    let typingTimer;
+    els.search?.addEventListener('input', () => {
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(()=>load(1), 300); // debounce search
+    });
+  });
+})();
+

@@ -198,14 +198,33 @@ def _build_clean_water_plant_report_wb(start_dt: date, end_dt: date) -> Workbook
             cust_col_map['LEEHING HT'].append(c.id)
 
     # Customer readings by day (clean water)
+    total_clean_expr = (
+        func.coalesce(CustomerReading.clean_water_reading, 0.0) +
+        func.coalesce(CustomerReading.clean_water_reading_2, 0.0)
+    )
+
     readings = db.session.query(
         CustomerReading.date,
         CustomerReading.customer_id,
-        db.func.sum(CustomerReading.clean_water_reading)
+        func.sum(total_clean_expr).label('total_clean')
     ).filter(
         CustomerReading.date >= start_dt,
         CustomerReading.date <= end_dt
-    ).group_by(CustomerReading.date, CustomerReading.customer_id).all()
+    ).group_by(
+        CustomerReading.date,
+        CustomerReading.customer_id
+    ).all()
+
+    # 2) Ghép vào các cột doanh nghiệp đã định nghĩa
+    cust_series = {k: {} for k in customer_columns}
+    for d, cid, total_clean in readings:
+        total_val = float(total_clean or 0.0)
+        # Đưa bản ghi (date,cid) về đúng cột (NHUỘM HY, LEEHING HT/TT, JASAN, LỆ TINH)
+        for col, ids in cust_col_map.items():
+            if cid in ids:
+                # Nếu cùng ngày/cột đã có giá trị từ KH khác (cùng nhóm), cộng dồn
+                cust_series[col][d] = float(cust_series[col].get(d, 0.0)) + total_val
+                break
 
     # Build per-column map
     cust_series = {k: {} for k in customer_columns}
