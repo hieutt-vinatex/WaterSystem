@@ -58,6 +58,8 @@ def _get_daily_production(today, yesterday):
 
     inventory_yesterday = _get_tank_inventory_yesterday(yesterday)
     inventory_today = _get_tank_inventory_today(today)
+    if(today.day==1):
+        return (clean_without_jasan - today_jasan) * 0.98
     return float((clean_without_jasan - today_jasan) * 0.98 + inventory_yesterday - inventory_today)
 
 
