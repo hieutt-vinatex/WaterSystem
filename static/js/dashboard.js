@@ -27,10 +27,10 @@ async function loadKPIData() {
 // Update KPI cards with data
 function updateKPICards() {
     const elements = {
-        'today-well-production': kpiData.today_well_production || 0,
-        'today-clean-water': kpiData.today_clean_water || 0,
-        'today-wastewater': kpiData.today_wastewater || 0,
-        'active-customers': kpiData.active_customers || 0
+        'today-well-production': (kpiData.today_well_production > 0 ? kpiData.today_well_production : 0) || 0,
+        'today-clean-water': (kpiData.today_clean_water > 0 ? kpiData.today_clean_water : 0) || 0,
+        'today-wastewater': (kpiData.today_wastewater > 0 ? kpiData.today_wastewater : 0) || 0,
+        'active-customers': (kpiData.active_customers > 0 ? kpiData.active_customers : 0) || 0
     };
 
     Object.keys(elements).forEach(id => {
