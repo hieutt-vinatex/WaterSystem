@@ -344,8 +344,53 @@
                         </form>
                     </div>
                 </div>
+                
             </div>
         </div>
+        <div class="card mt-4">
+                    <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                        <h6 class="mb-0"><i class="fas fa-table me-2"></i>Lịch sử nước thải theo ngày</h6>
+                        <div class="form-check ms-2">
+                            <input class="form-check-input" type="checkbox" id="ww-aggregate">
+                            <label class="form-check-label" for="ww-aggregate">Gộp tổng</label>
+                        </div>
+                        <div class="form-check ms-2">
+                            <input class="form-check-input" type="checkbox" id="ww-extra">
+                            <label class="form-check-label" for="ww-extra">Hiện chi tiết</label>
+                        </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                        <div class="btn-group" role="group" aria-label="Chọn NMNT">
+                            <input type="checkbox" class="btn-check" id="ww-p1" autocomplete="off" checked>
+                            <label class="btn btn-outline-secondary btn-sm" for="ww-p1">NMNT1</label>
+                            <input type="checkbox" class="btn-check" id="ww-p2" autocomplete="off" checked>
+                            <label class="btn btn-outline-secondary btn-sm" for="ww-p2">NMNT2</label>
+                        </div>
+                        <select id="ww-range" class="form-select form-select-sm" style="width:auto;">
+                            <option value="30" selected>30 ngày gần nhất</option>
+                            <option value="60">60 ngày gần nhất</option>
+                            <option value="90">90 ngày gần nhất</option>
+                        </select>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead class="table-light">
+                            <tr id="ww-head"><th>Ngày</th></tr>
+                            </thead>
+                            <tbody id="ww-body">
+                            <tr><td class="text-center py-3" colspan="999">Đang tải...</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between align-items-center">
+                        <small id="ww-summary" class="text-muted">—</small>
+                        <nav><ul id="ww-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+                    </div>
+                </div>
     </div>
     
     <!-- Customers Tab -->
@@ -443,6 +488,50 @@
                 </form>
             </div>
         </div>
+        <div class="card mt-4">
+            <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                <h6 class="mb-0"><i class="fas fa-table me-2"></i>Lịch sử khách hàng</h6>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                <input id="cust-search" type="text" class="form-control form-control-sm" placeholder="Tìm theo tên công ty..." style="width:220px;">
+                <select id="cust-type" class="form-select form-select-sm" style="width:auto;">
+                    <option value="">Tất cả</option>
+                    <option value="daily">Hàng ngày</option>
+                    <option value="monthly">Hàng tháng</option>
+                </select>
+                <select id="cust-range" class="form-select form-select-sm" style="width:auto;">
+                    <option value="30" selected>30 ngày gần nhất</option>
+                    <option value="60">60 ngày gần nhất</option>
+                    <option value="90">90 ngày gần nhất</option>
+                </select>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead class="table-light">
+                    <tr id="cust-head">
+                        <th>Ngày</th>
+                        <th>Khách hàng</th>
+                        <th>Loại</th>
+                        <th>Tỷ lệ NT/NS</th>
+                        <th>NS ĐH 1 (m³)</th>
+                        <th>NS ĐH 2 (m³)</th>
+                        <th>NT (m³)</th>
+                        <th>Nguồn NT</th>
+                    </tr>
+                    </thead>
+                    <tbody id="cust-body">
+                    <tr><td class="text-center py-3" colspan="8">Đang tải...</td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <small id="cust-summary" class="text-muted">—</small>
+                <nav><ul id="cust-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+            </div>
+</div>
+
     </div>
     
     <!-- Water Tanks Tab -->
@@ -547,12 +636,14 @@
         customerReadingsExists: "{{ url_for('data_entry.customer_readings_exists') }}",
         tankLevelExists: "{{ url_for('data_entry.water_tank_level_exists') }}",
 
-        // endpoint lịch sử/pivot
+        // endpoint lịch sử
         wellsPivotApi: "/api/well-productions/history/pivot",
         cleanWaterHistoryApi: "/api/clean-water/consumption/history",
         tanksPivotApi: "/api/water-tanks/history/pivot",
+        wastewaterPivotApi: "/api/wastewater/history/pivot",
+        customerHistoryApi: "/api/customer-readings/history",
 
-        // selectors các tab (nếu đổi id tab thì chỉnh ở đây)
+        // selectors các tab 
         selectors: {
         tabs: '#dataEntryTabs button[data-bs-toggle="tab"]',
         wells:   { tab: '#wells-tab', pane: '#wells',
@@ -567,7 +658,13 @@
                     pagination: '#tanks-pagination', range: '#tanks-range',
                     form: '#tanksForm' },
         wellsForm: '#wellForm',
-        customersForm: '#customerForm'
+        customersForm: '#customerForm',
+        customersHistory: {
+            head: '#cust-head', body: '#cust-body', summary: '#cust-summary',
+            pagination: '#cust-pagination',
+            range: '#cust-range', type: '#cust-type', search: '#cust-search',
+            tab: '#customers-tab', pane: '#customers'
+        }
         }
     };
     </script>
