@@ -58,7 +58,6 @@ def _get_daily_production(today, yesterday):
 
     inventory_yesterday = _get_tank_inventory_yesterday(yesterday)
     inventory_today = _get_tank_inventory_today(today)
-
     return float((clean_without_jasan - today_jasan) * 0.98 + inventory_yesterday - inventory_today)
 
 
@@ -186,7 +185,12 @@ def dashboard_data():
             prev_day = d - timedelta(days=1)
             today_sum = prod_map.get(d, 0.0)
             yesterday_sum = prod_map.get(prev_day, 0.0)
-            val = float(today_sum) - float(yesterday_sum)
+            if d.day == 1:
+                # Ngày đầu tháng: sum(production) - 0
+                val = float(today_sum)
+            else:
+                val = float(today_sum) - float(yesterday_sum)
+            print(d.day,float(today_sum),float(yesterday_sum))
             if val < 0:
                 val = 0.0
             well_series.append({'date': str(d), 'production': val})
