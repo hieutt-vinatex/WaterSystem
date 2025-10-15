@@ -5,10 +5,12 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from app import db
 from models import CleanWaterPlant, WaterTankLevel, WaterTank, CustomerReading, Customer
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, case
 from utils import generate_daily_report, generate_monthly_report, check_permissions
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+import unicodedata
+import re
 
 bp = Blueprint('reports', __name__)
 logger = logging.getLogger(__name__)
@@ -179,41 +181,87 @@ def _build_clean_water_plant_report_wb(start_dt: date, end_dt: date) -> Workbook
                 levels_map[lbl][dt_val] = float(level or 0)
                 break
 
-    # Customers mapping
+    # --- Map cột theo ID (bỏ nhận diện theo tên) ---
     customer_columns = ['NHUỘM HY', 'LEEHING HT', 'LEEHING TT', 'JASAN', 'LỆ TINH']
-    cust_col_map = {k: [] for k in customer_columns}
-    all_customers = Customer.query.filter(Customer.is_active.is_(True)).all()
-    for c in all_customers:
-        name = (c.company_name or '').lower()
-        if 'jasan' in name:
-            cust_col_map['JASAN'].append(c.id)
-        elif 'lệ tinh' in name or 'le tinh' in name:
-            cust_col_map['LỆ TINH'].append(c.id)
-        elif 'hy' in name:
-            # nhuộm hy
-            cust_col_map['NHUỘM HY'].append(c.id)
-        elif 'leehing' in name and ('tt' in name or ' t.t' in name):
-            cust_col_map['LEEHING TT'].append(c.id)
-        elif 'leehing' in name:  # default to HT if not specified
-            cust_col_map['LEEHING HT'].append(c.id)
+    cust_col_map = {
+        'NHUỘM HY':   [13],
+        'LEEHING HT': [25],   # nếu về sau tách TT riêng thì thêm id vào 'LEEHING TT'
+        'LEEHING TT': [],
+        'JASAN':      [21],
+        'LỆ TINH':    [26],
+    }
 
-    # Customer readings by day (clean water)
-    total_clean_expr = (
-        func.coalesce(CustomerReading.clean_water_reading, 0.0) +
-        func.coalesce(CustomerReading.clean_water_reading_2, 0.0)
+    # --- Hệ số theo ID: (k1, k2) ứng với (ΔĐH1, ΔĐH2) ---
+    FACTOR_BY_ID = {
+        13: (10.0, 1.0),  # Nhuộm HY
+        21: (1.0,  1.0),  # Jasan
+        25: (1.0, 10.0),  # Lee Hing HT
+        26: (1.0,  1.0),  # Lệ Tinh
+    }
+
+    # ==== Tính Δ cho 2 đồng hồ (window function) ====
+    r1 = func.coalesce(CustomerReading.clean_water_reading, 0.0)
+    lag_r1 = func.lag(r1).over(
+        partition_by=CustomerReading.customer_id,
+        order_by=CustomerReading.date
+    )
+    delta1 = case(((r1 - func.coalesce(lag_r1, r1)) < 0, 0.0),
+                else_=(r1 - func.coalesce(lag_r1, r1)))
+
+    r2 = func.coalesce(getattr(CustomerReading, "clean_water_reading_2", 0.0), 0.0)
+    lag_r2 = func.lag(r2).over(
+        partition_by=CustomerReading.customer_id,
+        order_by=CustomerReading.date
+    )
+    delta2 = case(((r2 - func.coalesce(lag_r2, r2)) < 0, 0.0),
+                else_=(r2 - func.coalesce(lag_r2, r2)))
+
+    # ==== CASE hệ số theo ID (fallback 1.0 nếu không match) ====
+    whens_k1 = [(Customer.id == cid, f1) for cid, (f1, _) in FACTOR_BY_ID.items()]
+    whens_k2 = [(Customer.id == cid, f2) for cid, (_, f2) in FACTOR_BY_ID.items()]
+    k1 = case(*whens_k1, else_=1.0) if whens_k1 else 1.0
+    k2 = case(*whens_k2, else_=1.0) if whens_k2 else 1.0
+    clean_delta_expr = (delta1 * k1) + (delta2 * k2)
+
+    # ==== Dải ngày cho LAG: cần (start_dt - 1) ====
+    calc_start = start_dt - timedelta(days=1)
+
+    # === LỚP 1: subquery tính delta theo dòng (dùng lag) ===
+    delta_sq = (
+        db.session.query(
+            CustomerReading.date.label('date'),
+            CustomerReading.customer_id.label('customer_id'),
+            clean_delta_expr.label('clean_delta')
+        )
+        .join(Customer, Customer.id == CustomerReading.customer_id)
+        .filter(
+            CustomerReading.date >= calc_start,
+            CustomerReading.date <= end_dt,
+            Customer.is_active.is_(True)
+        )
+    ).subquery()
+
+    # === LỚP 2: tổng theo (date, customer) (sum trên subquery, KHÔNG dùng lag ở đây) ===
+    readings = (
+        db.session.query(
+            delta_sq.c.date,
+            delta_sq.c.customer_id,
+            func.sum(delta_sq.c.clean_delta).label('total_clean')
+        )
+        .group_by(delta_sq.c.date, delta_sq.c.customer_id)
+        .all()
     )
 
-    readings = db.session.query(
-        CustomerReading.date,
-        CustomerReading.customer_id,
-        func.sum(total_clean_expr).label('total_clean')
-    ).filter(
-        CustomerReading.date >= start_dt,
-        CustomerReading.date <= end_dt
-    ).group_by(
-        CustomerReading.date,
-        CustomerReading.customer_id
-    ).all()
+    # --- Đưa vào 5 cột DN (bỏ ngày calc_start khi hiển thị) ---
+    cust_series = {k: {} for k in customer_columns}
+    for d, cid, total_clean in readings:
+        if d < start_dt:
+            continue
+        val = float(total_clean or 0.0)
+        for col, ids in cust_col_map.items():
+            if cid in ids:
+                cust_series[col][d] = float(cust_series[col].get(d, 0.0)) + val
+                break
 
     # 2) Ghép vào các cột doanh nghiệp đã định nghĩa
     cust_series = {k: {} for k in customer_columns}
@@ -840,7 +888,7 @@ def generate_report(report_type):
             return generate_monthly_report(report_type, start_date, end_date, format_type)
 
     except Exception as e:
-        bp.logger.exception("Error generating report")
+        logger.exception("Error generating report")
         flash(f'Error generating report: {str(e)}', 'error')
         return redirect(url_for('reports'))
     

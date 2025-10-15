@@ -97,18 +97,30 @@ document.addEventListener("DOMContentLoaded", function () {
                 }?date=${encodeURIComponent(dateVal)}`;
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
-
+            
+            //đóng để block update
+            // if (data.exists) {
+            //     const ok = window.confirm(
+            //         `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước sạch.\n` +
+            //         `Bạn sắp ghi đè các trường sau:\n${filled.join("\n")}\n\nTiếp tục?`
+            //     );
+            //     if (!ok) return;
+            //     // Set cờ ghi đè để backend cho phép cập nhật
+            //     const ow =
+            //         document.getElementById("overwrite-flag") ||
+            //         cleanForm.querySelector('input[name="overwrite"]');
+            //     if (ow) ow.value = "1";
+            // }
             if (data.exists) {
-                const ok = window.confirm(
-                    `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước sạch.\n` +
-                    `Bạn sắp ghi đè các trường sau:\n${filled.join("\n")}\n\nTiếp tục?`
-                );
+                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước sạch. Bản ghi đã bị khóa, không thể chỉnh sửa.`);
+                return;
+            } else {
+                const ok = await showConfirmFirstSave({
+                    entity: 'Nhà máy nước sạch',
+                    date: dateVal,
+                    lines: filled // chính là mảng "- Nhãn: giá trị"
+                });
                 if (!ok) return;
-                // Set cờ ghi đè để backend cho phép cập nhật
-                const ow =
-                    document.getElementById("overwrite-flag") ||
-                    cleanForm.querySelector('input[name="overwrite"]');
-                if (ow) ow.value = "1";
             }
         } catch (_) {
             /* ignore lỗi mạng, vẫn submit */
@@ -168,24 +180,41 @@ document.addEventListener("DOMContentLoaded", function () {
                 const res = await fetch(url, { credentials: "same-origin" });
                 const data = await res.json();
 
+                // if (data.exists && Array.isArray(data.wells) && data.wells.length) {
+                //     // Lấy danh sách giếng đã nhập và đã có dữ liệu -> sẽ ghi đè
+                //     const existingSet = new Set(data.wells.map(Number));
+                //     const toOverwrite = filled.filter((f) => existingSet.has(f.id));
+                //     if (toOverwrite.length) {
+                //         const lines = toOverwrite
+                //             .map((f) => `- Giếng ${f.id}: ${f.value} m³`)
+                //             .join("\n");
+                //         const ok = window.confirm(
+                //             `Đã có dữ liệu ngày ${dateVal} cho một số giếng.\n` +
+                //             `Bạn sắp ghi đè các giếng sau:\n${lines}\n\nTiếp tục?`
+                //         );
+                //         if (!ok) return;
+                //         // Gửi danh sách giếng cần ghi đè
+                //         document.getElementById("overwrite-ids").value = toOverwrite
+                //             .map((f) => f.id)
+                //             .join(",");
+                //     }
+                // }
                 if (data.exists && Array.isArray(data.wells) && data.wells.length) {
-                    // Lấy danh sách giếng đã nhập và đã có dữ liệu -> sẽ ghi đè
-                    const existingSet = new Set(data.wells.map(Number));
-                    const toOverwrite = filled.filter((f) => existingSet.has(f.id));
-                    if (toOverwrite.length) {
-                        const lines = toOverwrite
-                            .map((f) => `- Giếng ${f.id}: ${f.value} m³`)
-                            .join("\n");
-                        const ok = window.confirm(
-                            `Đã có dữ liệu ngày ${dateVal} cho một số giếng.\n` +
-                            `Bạn sắp ghi đè các giếng sau:\n${lines}\n\nTiếp tục?`
-                        );
-                        if (!ok) return;
-                        // Gửi danh sách giếng cần ghi đè
-                        document.getElementById("overwrite-ids").value = toOverwrite
-                            .map((f) => f.id)
-                            .join(",");
-                    }
+                    showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho các giếng: ${data.wells.join(', ')}. Bản ghi đã bị khóa, không thể chỉnh sửa.`);
+                    return;
+                } else {
+                    const lines = filled.map(f => {
+                        // 🔹 Tìm phần tử tiêu đề <h6 class="card-title"> của giếng này
+                        const wellCard = wellForm.querySelector(`input[name="production_${f.id}"]`)?.closest('.card');
+                        const title = wellCard?.querySelector('.card-title')?.textContent.trim() || `Giếng ${f.id}`;
+                        return `- ${title}: ${f.value} m³`;
+                    });
+                    const ok = await showConfirmFirstSave({
+                        entity: 'Giếng khoan',
+                        date: dateVal,
+                        lines
+                    });
+                    if (!ok) return;
                 }
             } catch (_) {
                 /* bỏ qua lỗi mạng, vẫn submit */
@@ -244,18 +273,30 @@ async function attachWastewaterFormHandler(formId, overwriteId, plantNumber) {
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
 
-            if (
-                data.exists &&
-                Array.isArray(data.plants) &&
-                data.plants.includes(plantNumber)
-            ) {
-                const lines = filled.map((f) => `- ${f.label}: ${f.value}`).join("\n");
-                const ok = window.confirm(
-                    `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước thải ${plantNumber}.\n` +
-                    `Bạn sắp ghi đè các trường sau:\n${lines}\n\nTiếp tục?`
-                );
+            // if (
+            //     data.exists &&
+            //     Array.isArray(data.plants) &&
+            //     data.plants.includes(plantNumber)
+            // ) {
+            //     const lines = filled.map((f) => `- ${f.label}: ${f.value}`).join("\n");
+            //     const ok = window.confirm(
+            //         `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước thải ${plantNumber}.\n` +
+            //         `Bạn sắp ghi đè các trường sau:\n${lines}\n\nTiếp tục?`
+            //     );
+            //     if (!ok) return;
+            //     document.getElementById(overwriteId).value = "1";
+            // }
+            if (data.exists && Array.isArray(data.plants) && data.plants.includes(plantNumber)){
+                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho NMNT ${plantNumber}. Bản ghi đã bị khóa, không thể chỉnh sửa.`);
+                return;
+            } else {
+                const lines = filled.map(f => `- ${f.label}: ${f.value}`);
+                const ok = await showConfirmFirstSave({
+                    entity: `NMNT ${plantNumber}`,
+                    date: dateVal,
+                    lines
+                });
                 if (!ok) return;
-                document.getElementById(overwriteId).value = "1";
             }
         } catch (_) {
             /* ignore mạng */
@@ -334,32 +375,58 @@ document.addEventListener("DOMContentLoaded", function () {
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
 
-            if (
-                data.exists &&
-                Array.isArray(data.customers) &&
-                data.customers.length
-            ) {
-                const existSet = new Set(data.customers.map(Number));
-                const toOverwrite = filled.filter((f) => existSet.has(f.id));
-                if (toOverwrite.length) {
-                    const lines = toOverwrite
-                        .map((it) => {
-                            const parts = [];
-                            if (it.cw !== "") parts.push(`- Nước sạch: ${it.cw}`);
-                            if (it.ww !== "") parts.push(`- Nước thải: ${it.ww}`);
-                            return `KH ${it.id}:\n${parts.join("\n")}`;
-                        })
-                        .join("\n");
-                    const ok = window.confirm(
-                        `Đã có dữ liệu ngày ${dateVal} cho một số khách hàng.\n` +
-                        `Bạn sắp ghi đè dữ liệu cho các khách hàng sau:\n\n${lines}\n\nTiếp tục?`
-                    );
-                    if (!ok) return;
-                    document.getElementById("overwrite-customer-ids").value = toOverwrite
-                        .map((x) => x.id)
-                        .join(",");
-                }
+            // if (
+            //     data.exists &&
+            //     Array.isArray(data.customers) &&
+            //     data.customers.length
+            // ) {
+            //     const existSet = new Set(data.customers.map(Number));
+            //     const toOverwrite = filled.filter((f) => existSet.has(f.id));
+            //     if (toOverwrite.length) {
+            //         const lines = toOverwrite
+            //             .map((it) => {
+            //                 const parts = [];
+            //                 if (it.cw !== "") parts.push(`- Nước sạch: ${it.cw}`);
+            //                 if (it.ww !== "") parts.push(`- Nước thải: ${it.ww}`);
+            //                 return `KH ${it.id}:\n${parts.join("\n")}`;
+            //             })
+            //             .join("\n");
+            //         const ok = window.confirm(
+            //             `Đã có dữ liệu ngày ${dateVal} cho một số khách hàng.\n` +
+            //             `Bạn sắp ghi đè dữ liệu cho các khách hàng sau:\n\n${lines}\n\nTiếp tục?`
+            //         );
+            //         if (!ok) return;
+            //         document.getElementById("overwrite-customer-ids").value = toOverwrite
+            //             .map((x) => x.id)
+            //             .join(",");
+            //     }
+            // }
+            if (data.exists && Array.isArray(data.customers) && data.customers.length){
+                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho một số khách hàng (${data.customers.join(', ')}). Bản ghi đã bị khóa, không thể chỉnh sửa.`);
+                return;
+            } else {
+                const lines = filled.map(it => {
+                    const parts = [];
+                    if (it.cw !== '') parts.push(`- Nước sạch: ${it.cw}`);
+                    if (it.ww !== '') parts.push(`- Nước thải: ${it.ww}`);
+
+                    // 🔹 Lấy tên khách hàng từ hàng chứa input có id tương ứng
+                    const row = form.querySelector(`input[name="customer_ids"][value="${it.id}"]`)?.closest('tr');
+                    const name =
+                        row?.querySelector('td strong')?.textContent.trim() ||
+                        `KH ${it.id}`;
+
+                    return `${name}:\n${parts.join('\n')}`;
+                });
+
+                const ok = await showConfirmFirstSave({
+                    entity: 'Khách hàng',
+                    date: dateVal,
+                    lines,
+                });
+                if (!ok) return;
             }
+
         } catch (_) {
             /* ignore */
         }
@@ -396,20 +463,33 @@ document.addEventListener("DOMContentLoaded", function () {
                 )}`;
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
+            // if (data.exists && Array.isArray(data.tanks) && data.tanks.length) {
+            //     const existSet = new Set(data.tanks.map(Number));
+            //     const toOverwrite = entries.filter((x) => existSet.has(x.id));
+            //     if (toOverwrite.length) {
+            //         const lines = toOverwrite
+            //             .map((x) => `- Bể ${x.id}: ${x.raw} m³`)
+            //             .join("\n");
+            //         const ok = window.confirm(
+            //             `Đã có dữ liệu ngày ${dateVal} cho một số bể chứa.\n` +
+            //             `Bạn sắp ghi đè mức nước cho:\n${lines}\n\nTiếp tục?`
+            //         );
+            //         if (!ok) return;
+            //     }
+            // }
             if (data.exists && Array.isArray(data.tanks) && data.tanks.length) {
-                const existSet = new Set(data.tanks.map(Number));
-                const toOverwrite = entries.filter((x) => existSet.has(x.id));
-                if (toOverwrite.length) {
-                    const lines = toOverwrite
-                        .map((x) => `- Bể ${x.id}: ${x.raw} m³`)
-                        .join("\n");
-                    const ok = window.confirm(
-                        `Đã có dữ liệu ngày ${dateVal} cho một số bể chứa.\n` +
-                        `Bạn sắp ghi đè mức nước cho:\n${lines}\n\nTiếp tục?`
-                    );
-                    if (!ok) return;
-                }
+                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho một số bể (${data.tanks.join(', ')}). Bản ghi đã bị khóa, không thể chỉnh sửa.`);
+                return;
+            } else {
+                const lines = entries.map(x => `- Bể ${x.id}: ${x.raw} m³`);
+                const ok = await showConfirmFirstSave({
+                    entity: 'Bể chứa',
+                    date: dateVal,
+                    lines
+                });
+                if (!ok) return;
             }
+
         } catch (_) {
             /* ignore lỗi mạng, vẫn submit */
         }
@@ -1087,4 +1167,111 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 })();
+
+// ===== POPUP Lưu =====
+(function(){
+  function ensureModal(id, html){
+    let el = document.getElementById(id);
+    if (!el){
+      const wrap = document.createElement('div');
+      wrap.innerHTML = html.trim();
+      el = wrap.firstElementChild;
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  // Confirm LẦN ĐẦU LƯU
+  window.showConfirmFirstSave = function(opts){
+    const html = `
+    <div id="firstSaveModal" class="modal fade" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg">
+          <div class="modal-header border-0">
+            <h5 class="modal-title">
+              <i class="fas fa-shield-check text-primary me-2"></i>
+              Xác nhận lưu
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-2 text-muted">Bạn sắp lưu dữ liệu ngày
+              <b class="fs-date"></b> cho <span class="fs-entity fw-semibold"></span>.
+            </p>
+            <div class="bg-light rounded p-2 mb-3 small" style="max-height: 220px; overflow:auto">
+              <div class="fs-items"></div>
+            </div>
+            <div class="alert alert-warning mb-0">
+              <i class="fas fa-lock me-2"></i><b>Lưu ý:</b>
+              Sau khi lưu thành công, bản ghi sẽ <u>bị khóa và không thể chỉnh sửa</u>.
+            </div>
+          </div>
+          <div class="modal-footer border-0">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+            <button type="button" class="btn btn-primary btn-confirm">Tôi hiểu và muốn lưu</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    return new Promise((resolve)=>{
+      const el = ensureModal('firstSaveModal', html);
+      let dateText = opts?.date || '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
+        const [y, m, d] = dateText.split('-');
+        dateText = `${d}/${m}/${y}`;
+        }
+        el.querySelector('.fs-date').textContent = dateText;
+        el.querySelector('.fs-entity').textContent = opts?.entity || '';
+        const lines = Array.isArray(opts?.lines) ? opts.lines : [];
+        el.querySelector('.fs-items').innerHTML    = `<pre class="mb-0">${lines.join('\n')}</pre>`;
+
+        const bs = new bootstrap.Modal(el, { backdrop: 'static', keyboard: false });
+        const okBtn = el.querySelector('.btn-confirm');
+
+        const onOk = () => { cleanup(); resolve(true); };
+        const onHide = () => { cleanup(); resolve(false); };
+        function cleanup(){
+        okBtn.removeEventListener('click', onOk);
+            el.removeEventListener('hidden.bs.modal', onHide);
+        }
+        okBtn.addEventListener('click', onOk);
+        el.addEventListener('hidden.bs.modal', onHide, { once: true });
+        bs.show();
+    });
+  };
+
+  // Thông báo đã KHÓA (không cho sửa)
+  window.showLockedInfo = function(message){
+    const html = `
+    <div id="lockedInfoModal" class="modal fade" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body text-center p-4">
+            <div class="text-warning mb-2"><i class="fas fa-lock fa-2x"></i></div>
+            <div class="mb-3">${message || 'Bản ghi đã bị khóa, không thể chỉnh sửa.'}</div>
+            <button class="btn btn-primary w-100" data-bs-dismiss="modal">Đã hiểu</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    const el = ensureModal('lockedInfoModal', html);
+    el.querySelector('.mb-3').innerHTML = message || 'Bản ghi đã bị khóa, không thể chỉnh sửa.';
+    const bs = new bootstrap.Modal(el, { backdrop: 'static', keyboard: false });
+    el.addEventListener('hidden.bs.modal', ()=> el.remove(), { once: true });
+    bs.show();
+  };
+
+  // Chặn double-submit khi modal đang mở
+  document.addEventListener('shown.bs.modal', (e)=>{
+    if (e.target.id === 'firstSaveModal'){
+      document.querySelectorAll('form').forEach(f => f.classList.add('pe-none'));
+    }
+  });
+  document.addEventListener('hidden.bs.modal', (e)=>{
+    if (e.target.id === 'firstSaveModal'){
+      document.querySelectorAll('form').forEach(f => f.classList.remove('pe-none'));
+    }
+  });
+})();
+
 

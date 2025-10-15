@@ -284,8 +284,6 @@ def submit_well_data():
         return redirect(url_for('dashboard.dashboard'))
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-
-        # Danh sách giếng trên form
         all_ids = [int(x) for x in request.form.getlist('well_ids') if str(x).isdigit()]
 
         # Chỉ lấy các giếng có nhập số (kể cả 0)
@@ -299,33 +297,40 @@ def submit_well_data():
             flash('Không có dữ liệu để lưu', 'warning')
             return redirect(url_for('data_entry.data_entry') + '#wells')
 
-        # Lấy các bản ghi đã tồn tại của những giếng có nhập
+        # Tìm những giếng đã có dữ liệu cùng ngày
         existing_rows = WellProduction.query.filter(
             WellProduction.date == entry_date,
             WellProduction.well_id.in_(list(filled.keys()))
         ).all()
-        exist_map = {r.well_id: r for r in existing_rows}
+        exist_ids = {r.well_id for r in existing_rows}
 
-        # Danh sách giếng cho phép ghi đè (từ hidden overwrite_ids: "2,5,7")
-        overwrite_ids = set(int(x) for x in request.form.get('overwrite_ids', '').split(',') if x.strip().isdigit())
-
-        # Lưu: chỉ ghi đè những giếng được xác nhận; giếng chưa có thì tạo mới
+        skipped = sorted(list(exist_ids))
+        inserted = 0
         for wid, val in filled.items():
-            if wid in exist_map:
-                if wid in overwrite_ids:
-                    exist_map[wid].production = val
-                # nếu không xác nhận ghi đè -> bỏ qua
+            if wid in exist_ids:
+                continue  # KHÔNG cập nhật
+            db.session.add(WellProduction(
+                well_id=wid, date=entry_date, production=val, created_by=current_user.id
+            ))
+            inserted += 1
+
+        if inserted == 0:
+            if skipped:
+                flash('Tất cả giếng bạn nhập đã có dữ liệu, hệ thống không cho phép cập nhật lại.', 'warning')
             else:
-                db.session.add(WellProduction(
-                    well_id=wid, date=entry_date, production=val, created_by=current_user.id
-                ))
+                flash('Không có dữ liệu để lưu', 'warning')
+            return redirect(url_for('data_entry.data_entry') + '#wells')
 
         db.session.commit()
-        flash('Well production data saved successfully', 'success')
+        msg = f'Đã lưu {inserted} giếng mới'
+        if skipped:
+            msg += f'; bỏ qua {len(skipped)} giếng đã có dữ liệu.'
+        flash(msg, 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
     return redirect(url_for('data_entry.data_entry') + '#wells')
+
 
 
 @bp.route('/clean-water/submit', methods=['POST'], endpoint='submit_clean_water_plant')
@@ -336,8 +341,11 @@ def submit_clean_water_plant():
         return redirect(url_for('dashboard.dashboard'))
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-
         existing = CleanWaterPlant.query.filter_by(date=entry_date).first()
+
+        if existing:
+            flash(f'Đã có dữ liệu ngày {entry_date:%d/%m/%Y}. Hệ thống không cho phép cập nhật lại.', 'warning')
+            return redirect(url_for('data_entry.data_entry') + '#clean-water')
 
         field_types = {
             'electricity': 'float',
@@ -348,34 +356,20 @@ def submit_clean_water_plant():
             'raw_water_jasan': 'float',
         }
 
-        # 1) Lấy Jasan thô từ form (mặc định 0 nếu bỏ trống)
-        jasan_val = parse_float_opt(request.form.get('raw_water_jasan'))
-        if jasan_val is None:
-            jasan_val = 0.0
-        # Tính tự động theo dữ liệu bể & giếng nếu có đủ dữ liệu
-        compute_res = _compute_clean_water_output_for_date(entry_date,jasan_val)
+        jasan_val = parse_float_opt(request.form.get('raw_water_jasan')) or 0.0
+        compute_res = _compute_clean_water_output_for_date(entry_date, jasan_val)
 
-        if existing:
-            # Luôn cập nhật các trường đã nhập (không cần cờ overwrite)
-            partial_update_fields(existing, request.form, field_types)
-            if compute_res.get('ready'):
-                existing.clean_water_output = compute_res.get('value')
-            msg = 'Cập nhật dữ liệu nhà máy nước sạch thành công'
-        else:
-            payload = build_insert_payload(request.form, field_types)
-            if compute_res.get('ready'):
-                payload['clean_water_output'] = compute_res.get('value')
-            else:
-                payload['clean_water_output'] = None  # Tránh lưu 0.0 mặc định nếu chưa đủ dữ liệu -> để NULL
-            db.session.add(CleanWaterPlant(date=entry_date, **payload, created_by=current_user.id))
-            msg = 'Thêm mới dữ liệu nhà máy nước sạch thành công'
+        payload = build_insert_payload(request.form, field_types)
+        payload['clean_water_output'] = compute_res.get('value') if compute_res.get('ready') else None
 
+        db.session.add(CleanWaterPlant(date=entry_date, **payload, created_by=current_user.id))
         db.session.commit()
-        flash(msg, 'success')
+        flash('Thêm mới dữ liệu nhà máy nước sạch thành công', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
     return redirect(url_for('data_entry.data_entry') + '#clean-water')
+
 
 @bp.route('/submit-wastewater-plant', methods=['POST'])
 @login_required
@@ -386,39 +380,29 @@ def submit_wastewater_plant():
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
         plant_number = int(request.form['plant_number'])
-        overwrite = request.form.get('overwrite') == '1'
         anchor = f'wastewater-{plant_number}'
 
         existing = WastewaterPlant.query.filter_by(date=entry_date, plant_number=plant_number).first()
-        if existing and not overwrite:
-            flash(f'Đã có dữ liệu ngày {entry_date:%d/%m/%Y} cho NMNT {plant_number}. Chọn "Ghi đè" nếu muốn thay thế.', 'warning')
+        if existing:
+            flash(f'Đã có dữ liệu ngày {entry_date:%d/%m/%Y} cho NMNT {plant_number}. Hệ thống không cho phép cập nhật lại.', 'warning')
             return _redirect_to_tab(anchor)
 
-        # Các trường số của NMNT
         fields = ['wastewater_meter', 'input_flow_tqt', 'output_flow_tqt', 'sludge_output', 'electricity', 'chemical_usage']
+        payload = {}
+        for f in fields:
+            v = parse_float_opt(request.form.get(f))
+            payload[f] = v if v is not None else 0.0
 
-        if existing:
-            # Cập nhật có chọn lọc: chỉ trường nào nhập giá trị mới
-            for f in fields:
-                v = parse_float_opt(request.form.get(f))
-                if v is not None:
-                    setattr(existing, f, v)
-        else:
-            # Tạo mới: trường rỗng -> 0
-            payload = {}
-            for f in fields:
-                v = parse_float_opt(request.form.get(f))
-                payload[f] = v if v is not None else 0.0
-            db.session.add(WastewaterPlant(
-                plant_number=plant_number, date=entry_date, created_by=current_user.id, **payload
-            ))
-
+        db.session.add(WastewaterPlant(
+            plant_number=plant_number, date=entry_date, created_by=current_user.id, **payload
+        ))
         db.session.commit()
-        flash(f'Wastewater plant {plant_number} data saved successfully', 'success')
+        flash(f'Thêm mới dữ liệu NMNT {plant_number} thành công', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')
     return _redirect_to_tab(anchor)
+
 
 @bp.route('/submit-tank-levels', methods=['POST'])
 @login_required
@@ -428,47 +412,50 @@ def submit_tank_levels():
         return redirect(url_for('dashboard.dashboard'))
     try:
         entry_date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        changes = 0
+        inserted = 0
+        skipped = []
 
         for tank_id_raw in request.form.getlist('tank_ids'):
-            # Bỏ qua nếu tank_id không phải số
             try:
                 tank_id = int(tank_id_raw)
             except (TypeError, ValueError):
                 continue
 
-            # Chỉ xử lý nếu người dùng có nhập (không rỗng)
             raw_val = request.form.get(f'level_{tank_id}', None)
-            level = parse_float_opt(raw_val)  # rỗng/không hợp lệ -> None
+            level = parse_float_opt(raw_val)
             if level is None:
-                # Không nhập gì -> giữ nguyên giá trị cũ (bỏ qua)
-                continue
+                continue  # không nhập
 
             existing = WaterTankLevel.query.filter_by(tank_id=tank_id, date=entry_date).first()
             if existing:
-                # Cập nhật giá trị mới
-                if existing.level != level:
-                    existing.level = level
-                    changes += 1
-            else:
-                # Tạo mới nếu chưa có bản ghi
-                db.session.add(WaterTankLevel(
-                    tank_id=tank_id,
-                    date=entry_date,
-                    level=level,
-                    created_by=current_user.id
-                ))
-                changes += 1
+                skipped.append(tank_id)  # KHÔNG cập nhật
+                continue
 
-        if changes == 0:
-            flash('Không có thay đổi nào được áp dụng.', 'warning')
-        else:
-            db.session.commit()
-            flash('Mức nước bể chứa đã được lưu thành công', 'success')
+            db.session.add(WaterTankLevel(
+                tank_id=tank_id,
+                date=entry_date,
+                level=level,
+                created_by=current_user.id
+            ))
+            inserted += 1
+
+        if inserted == 0:
+            if skipped:
+                flash('Các bể đã có dữ liệu ngày này. Hệ thống không cho phép cập nhật lại.', 'warning')
+            else:
+                flash('Không có dữ liệu để lưu', 'warning')
+            return redirect(url_for('data_entry.data_entry') + '#tanks')
+
+        db.session.commit()
+        msg = f'Đã lưu {inserted} bể mới'
+        if skipped:
+            msg += f'; bỏ qua {len(skipped)} bể đã có dữ liệu.'
+        flash(msg, 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Lỗi khi lưu dữ liệu: {str(e)}', 'error')
-    return redirect(url_for('data_entry.data_entry'))
+    return redirect(url_for('data_entry.data_entry') + '#tanks')
+
 
 @bp.route('/api/customer-readings/exists')
 @login_required
@@ -505,8 +492,7 @@ def submit_customer_readings():
             flash('Không có khách hàng nào để lưu', 'warning')
             return redirect(url_for('data_entry.data_entry') + '#customers')
 
-        # Chỉ xử lý KH có nhập số (kể cả "0")
-        def parse_float_opt(val):
+        def _pfloat(val):
             s = ('' if val is None else str(val).strip())
             if s == '':
                 return None
@@ -522,14 +508,11 @@ def submit_customer_readings():
         filled = {}
         for cid in customer_ids:
             cw1_raw = request.form.get(f'clean_water_{cid}', '')
-            cw2_raw = request.form.get(f'clean_water_2_{cid}', '')  #thêm ĐH2
+            cw2_raw = request.form.get(f'clean_water_2_{cid}', '')
             ww_raw  = request.form.get(f'wastewater_{cid}', '')
-            print(cw2_raw)
-            cw1_val = parse_float_opt(cw1_raw)
-            cw2_val = parse_float_opt(cw2_raw)
-            ww_val  = parse_float_opt(ww_raw) if ww_raw != '' else None
-
-            # Có dữ liệu ở bất kỳ ô nào thì mới xử lý
+            cw1_val = _pfloat(cw1_raw)
+            cw2_val = _pfloat(cw2_raw)
+            ww_val  = _pfloat(ww_raw) if ww_raw != '' else None
             if cw1_val is not None or cw2_val is not None or ww_val is not None:
                 filled[cid] = {'cw1': cw1_val, 'cw2': cw2_val, 'ww': ww_val}
 
@@ -541,75 +524,50 @@ def submit_customer_readings():
             CustomerReading.date == entry_date,
             CustomerReading.customer_id.in_(list(filled.keys()))
         ).all()
-        exist_map = {r.customer_id: r for r in existing_rows}
+        exist_ids = {r.customer_id for r in existing_rows}
 
-        # Danh sách KH cho phép ghi đè (từ popup)
-        overwrite_raw = request.form.get('overwrite_customer_ids', '') or request.form.get('overwrite_ids', '')
-        overwrite_ids = {int(x) for x in overwrite_raw.split(',') if x.strip().isdigit()}
-
-        changes = 0
+        inserted = 0
+        skipped = []
         for cid, vals in filled.items():
-            cw1_val, cw2_val, ww_val = vals['cw1'], vals['cw2'], vals['ww']
+            if cid in exist_ids:
+                skipped.append(cid)  # KHÔNG cập nhật
+                continue
 
-            # Tính wastewater_calculated nếu không nhập wastewater
+            cw1_val, cw2_val, ww_val = vals['cw1'], vals['cw2'], vals['ww']
             customer = Customer.query.get(cid)
             try:
                 ratio = float(customer.water_ratio or 0)
             except (TypeError, ValueError):
                 ratio = 0.0
 
-            total_clean = (cw1_val or 0.0) + (cw2_val or 0.0)  # ĐH1 + ĐH2 (ĐH2 null thì +0)
+            total_clean = (cw1_val or 0.0) + (cw2_val or 0.0)
             ww_calc = None if ww_val is not None else (
                 total_clean * ratio if (cw1_val is not None or cw2_val is not None) else None
             )
 
-            if cid in exist_map:
-                if cid in overwrite_ids:
-                    before = (exist_map[cid].clean_water_reading,
-                              getattr(exist_map[cid], 'clean_water_reading_2', None),
-                              exist_map[cid].wastewater_reading,
-                              exist_map[cid].wastewater_calculated)
+            db.session.add(CustomerReading(
+                customer_id=cid,
+                date=entry_date,
+                clean_water_reading=(cw1_val if cw1_val is not None else 0.0),
+                clean_water_reading_2=(cw2_val if cw2_val is not None else 0.0),
+                wastewater_reading=ww_val,
+                wastewater_calculated=(ww_calc if ww_val is None else None),
+                created_by=current_user.id
+            ))
+            inserted += 1
 
-                    # Cập nhật ĐH1/ĐH2 nếu có nhập
-                    if cw1_val is not None:
-                        exist_map[cid].clean_water_reading = cw1_val
-                    if cw2_val is not None:
-                        exist_map[cid].clean_water_reading_2 = cw2_val  # lưu ĐH2
-
-                    # Xử lý nước thải: nếu nhập tay -> ưu tiên; nếu không -> tính lại theo tỷ lệ
-                    if ww_val is not None:
-                        exist_map[cid].wastewater_reading = ww_val
-                        exist_map[cid].wastewater_calculated = None
-                    else:
-                        # Chỉ set lại calculated nếu có thay đổi ĐH1/ĐH2
-                        if cw1_val is not None or cw2_val is not None:
-                            exist_map[cid].wastewater_calculated = ww_calc
-
-                    after = (exist_map[cid].clean_water_reading,
-                             getattr(exist_map[cid], 'clean_water_reading_2', None),
-                             exist_map[cid].wastewater_reading,
-                             exist_map[cid].wastewater_calculated)
-                    if before != after:
-                        changes += 1
-                # nếu không xác nhận ghi đè -> bỏ qua
+        if inserted == 0:
+            if skipped:
+                flash('Các khách hàng đã có dữ liệu ngày này. Hệ thống không cho phép cập nhật lại.', 'warning')
             else:
-                db.session.add(CustomerReading(
-                    customer_id=cid,
-                    date=entry_date,
-                    clean_water_reading=(cw1_val if cw1_val is not None else 0.0),
-                    clean_water_reading_2=(cw2_val if cw2_val is not None else 0.0),  # 👈 thêm field mới
-                    wastewater_reading=ww_val,
-                    wastewater_calculated=(ww_calc if ww_val is None else None),
-                    created_by=current_user.id
-                ))
-                changes += 1
-
-        if changes == 0:
-            flash('Không có thay đổi nào được áp dụng. Có thể dữ liệu đã tồn tại và bạn không xác nhận ghi đè.', 'warning')
+                flash('Không có dữ liệu để lưu', 'warning')
             return redirect(url_for('data_entry.data_entry') + '#customers')
 
         db.session.commit()
-        flash('Customer readings saved successfully', 'success')
+        msg = f'Đã lưu {inserted} khách hàng mới'
+        if skipped:
+            msg += f'; bỏ qua {len(skipped)} khách hàng đã có dữ liệu.'
+        flash(msg, 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error saving data: {str(e)}', 'error')

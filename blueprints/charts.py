@@ -146,7 +146,7 @@ def _get_tank_inventory_today(today):
         level = float(tank_level.level or 0)
         inventory = _calculate_tank_inventory(tank_level.tank_id, level)
         total_today += inventory
-    print('total_today', total_today)
+    # print('total_today', total_today)
 
     return total_today
 
@@ -192,7 +192,7 @@ def dashboard_data():
                 val = float(today_sum)
             else:
                 val = float(today_sum) - float(yesterday_sum)
-            print(d.day,float(today_sum),float(yesterday_sum))
+            # print(d.day,float(today_sum),float(yesterday_sum))
             if val < 0:
                 val = 0.0
             well_series.append({'date': str(d), 'production': val})
@@ -437,13 +437,15 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
     q = db.session.query(
         WellProduction.date, Well.id.label('well_id'), Well.code.label('well_code'),
         Well.capacity.label('capacity'), db.func.sum(WellProduction.production).label('production')
-    ).join(Well).filter(WellProduction.date >= start_date, WellProduction.date <= end_date)
+    ).join(Well).filter(WellProduction.date >= start_date - timedelta(days=1), WellProduction.date <= end_date)
     if well_ids:
         q = q.filter(Well.id.in_(well_ids))
     q = q.group_by(WellProduction.date, Well.id, Well.code, Well.capacity).order_by(WellProduction.date, Well.code)
     rows = q.all()
+    # print(rows)
 
     dates_set = sorted({r.date for r in rows} or dates)
+    dates_set = dates_set[1:]
     labels = [d.strftime('%d/%m') for d in dates_set]
     wells_map, capacities_map = {}, {}
     for r in rows:
@@ -465,6 +467,7 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
                 prev = d - timedelta(days=1)
                 prev_val = float(date_dict.get(prev, 0) or 0)
                 val = cur - prev_val
+                # print(prev, prev_val)
             series.append(val)
         # Hiển thị: nếu giá trị âm thì đưa về 0
         series = [v if v >= 0 else 0 for v in series]
@@ -579,7 +582,7 @@ def generate_clean_water_details(start_date, end_date):
         inventory_yesterday = float(_get_tank_inventory_yesterday(prev_day))
         inventory_today = float(_get_tank_inventory_today(d))
 
-        print(inventory_yesterday,inventory_today)
+        # print(inventory_yesterday,inventory_today)
 
         # 2.2 Nước sạch cấp cho KH trong ngày
         total = 0.98 * max(wells_delta - jasan_raw, 0.0) + (inventory_yesterday - inventory_today)
