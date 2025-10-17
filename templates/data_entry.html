@@ -460,6 +460,11 @@
                                                 class="form-control"
                                                 style="margin-top: 10px;"
                                                 placeholder="Chỉ số NS ĐH 2 (m³)">
+                                            <input type="number" step="0.01"
+                                                name="clean_water_3_{{ customer.id }}"
+                                                class="form-control"
+                                                style="margin-top: 10px;"
+                                                placeholder="Chỉ số NS ĐH 3 (m³)">
                                         {% else %}
                                             <input type="number" class="form-control" name="clean_water_{{ customer.id }}" 
                                                step="0.1" min="0" placeholder="Chỉ số NS">
@@ -516,12 +521,13 @@
                         <th>Tỷ lệ NT/NS</th>
                         <th>NS ĐH 1 (m³)</th>
                         <th>NS ĐH 2 (m³)</th>
+                        <th>NS ĐH 3 (m³)</th>
                         <th>NT (m³)</th>
                         <th>Nguồn NT</th>
                     </tr>
                     </thead>
                     <tbody id="cust-body">
-                    <tr><td class="text-center py-3" colspan="8">Đang tải...</td></tr>
+                    <tr><td class="text-center py-3" colspan="9">Đang tải...</td></tr>
                     </tbody>
                 </table>
                 </div>

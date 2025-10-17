@@ -509,12 +509,14 @@ def submit_customer_readings():
         for cid in customer_ids:
             cw1_raw = request.form.get(f'clean_water_{cid}', '')
             cw2_raw = request.form.get(f'clean_water_2_{cid}', '')
+            cw3_raw = request.form.get(f'clean_water_3_{cid}', '')
             ww_raw  = request.form.get(f'wastewater_{cid}', '')
             cw1_val = _pfloat(cw1_raw)
             cw2_val = _pfloat(cw2_raw)
+            cw3_val = _pfloat(cw3_raw)
             ww_val  = _pfloat(ww_raw) if ww_raw != '' else None
-            if cw1_val is not None or cw2_val is not None or ww_val is not None:
-                filled[cid] = {'cw1': cw1_val, 'cw2': cw2_val, 'ww': ww_val}
+            if cw1_val is not None or cw2_val is not None or ww_val is not None or cw3_val is not None:
+                filled[cid] = {'cw1': cw1_val, 'cw2': cw2_val, 'cw3':cw3_val,'ww': ww_val}
 
         if not filled:
             flash('Không có dữ liệu để lưu', 'warning')
@@ -533,16 +535,16 @@ def submit_customer_readings():
                 skipped.append(cid)  # KHÔNG cập nhật
                 continue
 
-            cw1_val, cw2_val, ww_val = vals['cw1'], vals['cw2'], vals['ww']
+            cw1_val, cw2_val,cw3_val, ww_val = vals['cw1'], vals['cw2'], vals['cw3'],vals['ww']
             customer = Customer.query.get(cid)
             try:
                 ratio = float(customer.water_ratio or 0)
             except (TypeError, ValueError):
                 ratio = 0.0
 
-            total_clean = (cw1_val or 0.0) + (cw2_val or 0.0)
+            total_clean = (cw1_val or 0.0) + (cw2_val or 0.0) + (cw3_val or 0.0)
             ww_calc = None if ww_val is not None else (
-                total_clean * ratio if (cw1_val is not None or cw2_val is not None) else None
+                total_clean * ratio if (cw1_val is not None or cw2_val is not None or cw3_val is not None) else None
             )
 
             db.session.add(CustomerReading(
@@ -550,6 +552,7 @@ def submit_customer_readings():
                 date=entry_date,
                 clean_water_reading=(cw1_val if cw1_val is not None else 0.0),
                 clean_water_reading_2=(cw2_val if cw2_val is not None else 0.0),
+                clean_water_reading_3=(cw3_val if cw3_val is not None else 0.0),
                 wastewater_reading=ww_val,
                 wastewater_calculated=(ww_calc if ww_val is None else None),
                 created_by=current_user.id

@@ -1091,7 +1091,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const q = (els.search?.value || '').trim();
     if (q) params.set('q', q);
 
-    els.body.innerHTML = `<tr><td class="text-center py-3" colspan="8">Đang tải...</td></tr>`;
+    els.body.innerHTML = `<tr><td class="text-center py-3" colspan="9">Đang tải...</td></tr>`;
 
     try{
       const res = await fetch(`${CFG.customerHistoryApi}?${params.toString()}`);
@@ -1101,7 +1101,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const meta = data.meta || { page:1, pages:1, total:0, range_days: params.get('range_days') };
 
       if (!rows.length){
-        els.body.innerHTML = `<tr><td class="text-center py-3" colspan="8">Không có dữ liệu</td></tr>`;
+        els.body.innerHTML = `<tr><td class="text-center py-3" colspan="9">Không có dữ liệu</td></tr>`;
       } else {
         els.body.innerHTML = rows.map(r => {
           return `
@@ -1112,6 +1112,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <td>${fmt(r.ratio)}</td>
               <td>${fmt(r.clean_1)}</td>
               <td>${fmt(r.clean_2)}</td>
+              <td>${fmt(r.clean_3)}</td>
               <td>${fmt(r.wastewater)}</td>
               <td>${r.source === 'actual' ? 'Nhập tay' : 'Tính theo tỷ lệ'}</td>
             </tr>`;
@@ -1122,7 +1123,7 @@ document.addEventListener("DOMContentLoaded", function () {
       buildPag(meta.page, meta.pages || 1);
     }catch(e){
       console.error(e);
-      els.body.innerHTML = `<tr><td class="text-danger text-center py-3" colspan="8">Lỗi tải dữ liệu</td></tr>`;
+      els.body.innerHTML = `<tr><td class="text-danger text-center py-3" colspan="9">Lỗi tải dữ liệu</td></tr>`;
       els.sum.textContent = '—';
       els.pag.innerHTML = '';
     }

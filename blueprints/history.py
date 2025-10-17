@@ -595,7 +595,7 @@ def customer_readings_history():
     - q: chuỗi tìm kiếm (company_name LIKE)
     - type: daily | monthly (lọc theo customer.daily_reading)
     - customer_ids: "1,2,3" (optional)
-    Trả về: (date, company_name, type, ratio, clean_1, clean_2, wastewater_value, source)
+    Trả về: (date, company_name, type, ratio, clean_1, clean_2,clean_3, wastewater_value, source)
       wastewater_value = wastewater_reading (nếu có) else wastewater_calculated
       source = "actual" | "calculated"
     """
@@ -617,6 +617,7 @@ def customer_readings_history():
             Customer.water_ratio,
             CustomerReading.clean_water_reading,
             CustomerReading.clean_water_reading_2,
+            CustomerReading.clean_water_reading_3,
             CustomerReading.wastewater_reading,
             CustomerReading.wastewater_calculated,
         )
@@ -645,7 +646,7 @@ def customer_readings_history():
             q = q.filter(CustomerReading.date >= cutoff)
         else:
             return jsonify({
-                "columns": ["date","company","type","ratio","clean_1","clean_2","wastewater","source"],
+                "columns": ["date","company","type","ratio","clean_1","clean_2","clean_3","wastewater","source"],
                 "rows": [],
                 "meta": {"page":1,"pages":1,"per_page":per_page,"total":0,"range_days":range_days}
             })
@@ -693,6 +694,7 @@ def customer_readings_history():
             "ratio": float(row.water_ratio or 0),
             "clean_1": float(row.clean_water_reading or 0),
             "clean_2": float(row.clean_water_reading_2 or 0),
+            "clean_3": float(row.clean_water_reading_3 or 0),
             "wastewater": ww_val,
             "source": source
         }
@@ -700,7 +702,7 @@ def customer_readings_history():
     items = [_row_to_dict(row) for row in pagination.items]
 
     return jsonify({
-        "columns": ["date","company","type","ratio","clean_1","clean_2","wastewater","source"],
+        "columns": ["date","company","type","ratio","clean_1","clean_2","clean_3","wastewater","source"],
         "rows": items,
         "meta": {
             "page": pagination.page,
