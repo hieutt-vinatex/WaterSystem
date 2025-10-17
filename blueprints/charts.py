@@ -211,10 +211,11 @@ def dashboard_data():
         ).filter(WastewaterPlant.date >= start_date, WastewaterPlant.date <= end_date)\
          .group_by(WastewaterPlant.date).all()
 
-       # Hai đồng hồ nước sạch (nếu có)
+       # 3 đồng hồ nước sạch (nếu có)
         r1 = func.coalesce(CustomerReading.clean_water_reading, 0)
         r2 = func.coalesce(getattr(CustomerReading, 'clean_water_reading_2', 0), 0)
-        total_ns = r1 + r2
+        r3 = func.coalesce(getattr(CustomerReading, 'clean_water_reading_3', 0), 0)
+        total_ns = r1 + r2 + r3
 
         lag_total_ns = func.lag(total_ns).over(
             partition_by=CustomerReading.customer_id,
@@ -350,6 +351,7 @@ def api_chart_details(chart_type):
             agg_flag = request.args.get('aggregate', '0').lower() in ('1', 'true', 'yes')
             aggregate = agg_flag or (well_ids_param in (None, '', 'all'))
             data = get_well_production_range(start_dt, end_dt, well_ids, aggregate=aggregate)
+            print(data)
 
         elif chart_type == 'clean-water':
             data = generate_clean_water_details(start_dt, end_dt)
@@ -397,7 +399,7 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
             except Exception:
                 pass
         wells = qw.all()
-        total_capacity = float(sum([float(getattr(w, 'capacity', 0) or 0) for w in wells]))
+        total_capacity = 17000.0
         capacity_series = [total_capacity for _ in dates]
 
         labels = [d.strftime('%d/%m') for d in dates]
@@ -430,7 +432,7 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
             'min': min([v for v in total_each_day if v > 0]) if any(total_each_day) else 0
         }
         table_data = [{'date': d.strftime('%d/%m/%Y'), 'total': total_each_day[i]} for i, d in enumerate(dates)]
-
+        table_data.reverse()
         return {'chart_data': {'labels': labels, 'datasets': datasets}, 'summary': summary, 'table_data': table_data}
 
     # ===== Chế độ mặc định: từng giếng + đường công suất từng giếng =====
@@ -480,18 +482,18 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
             'fill': False,
             'tension': 0.3
         })
-    for code, cap in sorted(capacities_map.items()):
-        color = well_colors.get(code, 'rgb(100,100,100)')
-        datasets.append({
-            'label': f'{code} - Công suất',
-            'data': [cap for _ in dates_set],
-            'borderColor': color,
-            'backgroundColor': 'rgba(0,0,0,0)',
-            'fill': False,
-            'tension': 0.0,
-            'borderDash': [6, 6],
-            'pointRadius': 0
-        })
+    # for code, cap in sorted(capacities_map.items()):
+    #     color = well_colors.get(code, 'rgb(100,100,100)')
+    #     datasets.append({
+    #         'label': f'{code} - Công suất',
+    #         'data': [cap for _ in dates_set],
+    #         'borderColor': color,
+    #         'backgroundColor': 'rgba(0,0,0,0)',
+    #         'fill': False,
+    #         'tension': 0.0,
+    #         'borderDash': [6, 6],
+    #         'pointRadius': 0
+    #     })
 
     total_each_day = [sum(ds['data'][idx] for ds in datasets if 'Công suất' not in ds['label']) for idx in range(len(labels))]
     summary = {
@@ -501,7 +503,8 @@ def get_well_production_range(start_date, end_date, well_ids=None, aggregate=Fal
         'min': min([v for v in total_each_day if v > 0]) if any(total_each_day) else 0
     }
     table_data = []
-    for idx, d in enumerate(dates_set):
+    for idx in range(len(dates_set) -1,-1,-1): #đi từ cuối -> đầu
+        d = dates_set[idx]
         row = {'date': d.strftime('%d/%m/%Y')}
         daily_total = 0
         for ds in datasets:
@@ -535,7 +538,7 @@ def generate_clean_water_details(start_date, end_date):
     for d in dates:
         daily_val = _clean_water_production_today(d)
         daily_jasan = _get_today_jasan(d)
-        data.append(float(daily_val + daily_jasan))
+        data.append(float(daily_val - daily_jasan)*0.98)
     # Hiển thị trên chart: nếu giá trị âm thì = 0
     data = [v if v >= 0 else 0 for v in data]
     
@@ -812,6 +815,18 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
         (((r2 - func.coalesce(lag_r2, r2)) < 0), 0),
         else_=(r2 - func.coalesce(lag_r2, r2))
     )
+
+    # Đồng hồ 3 (có thể null với KH chỉ có 1 đồng hồ)
+    r3 = func.coalesce(getattr(CustomerReading, "clean_water_reading_3", 0), 0)
+    lag_r3 = func.lag(r3).over(
+        partition_by=CustomerReading.customer_id,
+        order_by=CustomerReading.date
+    )
+    delta3 = case(
+        (((r3 - func.coalesce(lag_r3, r3)) < 0), 0),
+        else_=(r3 - func.coalesce(lag_r3, r3))
+    )
+
     companies_NHY = [
         'Cty TNHH Dệt và Nhuộm Hưng Yên',    # Áp hệ số: đồng hồ 1 * 10, đồng hồ 2 * 1
     ]
@@ -1155,7 +1170,8 @@ def customer_details_api():
                 Customer.id.label('cid'),
                 db.func.sum(
                     CustomerReading.clean_water_reading +
-                    db.func.coalesce(CustomerReading.clean_water_reading_2, 0)
+                    db.func.coalesce(CustomerReading.clean_water_reading_2, 0) +
+                    db.func.coalesce(CustomerReading.clean_water_reading_3, 0)
                 ).label('sum_clean')
             )
             .join(Customer)
