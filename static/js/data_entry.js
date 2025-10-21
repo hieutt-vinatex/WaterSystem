@@ -1,4 +1,14 @@
+function disableInputs(form, selectors = []) {
+    selectors.forEach((sel) => {
+        form.querySelectorAll(sel).forEach((el) => {
+            el.setAttribute("disabled", "disabled");
+            el.classList.add("disabled");
+        });
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
+
     // Tắt auto scroll restore của trình duyệt
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
@@ -97,23 +107,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 }?date=${encodeURIComponent(dateVal)}`;
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
-            
-            //đóng để block update
-            // if (data.exists) {
-            //     const ok = window.confirm(
-            //         `Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước sạch.\n` +
-            //         `Bạn sắp ghi đè các trường sau:\n${filled.join("\n")}\n\nTiếp tục?`
-            //     );
-            //     if (!ok) return;
-            //     // Set cờ ghi đè để backend cho phép cập nhật
-            //     const ow =
-            //         document.getElementById("overwrite-flag") ||
-            //         cleanForm.querySelector('input[name="overwrite"]');
-            //     if (ow) ow.value = "1";
-            // }
-            if (data.exists) {
-                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước sạch. Bản ghi đã bị khóa, không thể chỉnh sửa.`);
-                return;
+
+            if (data.exists === true) {
+                const isLocked = data.locked === true || data.editable === false;
+                if (isLocked) {
+                    disableInputs(cleanForm, [
+                        'input:not([type="hidden"])',
+                        'textarea',
+                        'select',
+                        'button[type="submit"]'
+                    ]);
+                    showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho Nhà máy nước sạch. Bản ghi đã quá hạn 24 giờ và không thể chỉnh sửa.`);
+                    return;
+                }
+                // Cho phép cập nhật trong 48 giờ, không cần xác nhận thêm.
             } else {
                 const ok = await showConfirmFirstSave({
                     entity: 'Nhà máy nước sạch',
@@ -146,6 +153,7 @@ function getFilledNumericFields(form, names, labelsMap) {
 
 /* --- Tab Giếng khoan --- */
 document.addEventListener("DOMContentLoaded", function () {
+    
     const wellForm = document.getElementById("wellForm");
     if (wellForm) {
         wellForm.addEventListener("submit", async function (e) {
@@ -199,23 +207,59 @@ document.addEventListener("DOMContentLoaded", function () {
                 //             .join(",");
                 //     }
                 // }
-                if (data.exists && Array.isArray(data.wells) && data.wells.length) {
-                    showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho các giếng: ${data.wells.join(', ')}. Bản ghi đã bị khóa, không thể chỉnh sửa.`);
-                    return;
-                } else {
-                    const lines = filled.map(f => {
-                        // 🔹 Tìm phần tử tiêu đề <h6 class="card-title"> của giếng này
-                        const wellCard = wellForm.querySelector(`input[name="production_${f.id}"]`)?.closest('.card');
-                        const title = wellCard?.querySelector('.card-title')?.textContent.trim() || `Giếng ${f.id}`;
-                        return `- ${title}: ${f.value} m³`;
+                // if (data.exists && Array.isArray(data.wells) && data.wells.length) {
+                //     showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho các giếng: ${data.wells.join(', ')}. Bản ghi đã bị khóa, không thể chỉnh sửa.`);
+                //     return;
+                // } else {
+                //     const lines = filled.map(f => {
+                //         // 🔹 Tìm phần tử tiêu đề <h6 class="card-title"> của giếng này
+                //         const wellCard = wellForm.querySelector(`input[name="production_${f.id}"]`)?.closest('.card');
+                //         const title = wellCard?.querySelector('.card-title')?.textContent.trim() || `Giếng ${f.id}`;
+                //         return `- ${title}: ${f.value} m³`;
+                //     });
+                //     const ok = await showConfirmFirstSave({
+                //         entity: 'Giếng khoan',
+                //         date: dateVal,
+                //         lines
+                //     });
+                //     if (!ok) return;
+                // }
+                const editable = Array.isArray(data.editable_ids) ? data.editable_ids.map(Number) : [];
+                const locked   = Array.isArray(data.locked_ids)   ? data.locked_ids.map(Number)   : [];
+
+                if (locked.length) {
+                    // Chặn và có thể disable input của các giếng bị khóa
+                    showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho các giếng (đã quá 24 giờ): ${locked.join(', ')}. Không thể chỉnh sửa.`);
+                    // Optional: disable input các giếng locked để người dùng thấy rõ
+                    locked.forEach(id => {
+                        const inp = wellForm.querySelector(`input[name="production_${id}"]`);
+                        if (inp) { inp.setAttribute('disabled', 'disabled'); inp.classList.add('disabled'); }
                     });
-                    const ok = await showConfirmFirstSave({
-                        entity: 'Giếng khoan',
-                        date: dateVal,
-                        lines
-                    });
-                    if (!ok) return;
+                    // Nếu tất cả đều khóa thì dừng; nếu còn giếng mới/cho phép sửa thì vẫn submit
+                    const allIdsInFilled = new Set(filled.map(f => f.id));
+                    const unlockedInFilled = [...allIdsInFilled].filter(id => !locked.includes(id));
+                    if (unlockedInFilled.length === 0) return;
                 }
+
+                // Nếu có giếng editable (đã tồn tại nhưng trong 48h) thì cho update luôn
+                // Nếu có giếng mới hoàn toàn (chưa tồn tại) thì hiện modal xác nhận lần đầu cho phần đó
+                const hasNewOnes = filled.some(f => !editable.includes(f.id) && !locked.includes(f.id));
+                if (hasNewOnes) {
+                const lines = filled
+                    .filter(f => !locked.includes(f.id) && !editable.includes(f.id))
+                    .map(f => {
+                    const wellCard = wellForm.querySelector(`input[name="production_${f.id}"]`)?.closest('.card');
+                    const title = wellCard?.querySelector('.card-title')?.textContent.trim() || `Giếng ${f.id}`;
+                    return `- ${title}: ${f.value} m³`;
+                    });
+                const ok = await showConfirmFirstSave({
+                    entity: 'Giếng khoan',
+                    date: dateVal,
+                    lines
+                });
+                if (!ok) return;
+                }
+
             } catch (_) {
                 /* bỏ qua lỗi mạng, vẫn submit */
             }
@@ -286,10 +330,21 @@ async function attachWastewaterFormHandler(formId, overwriteId, plantNumber) {
             //     if (!ok) return;
             //     document.getElementById(overwriteId).value = "1";
             // }
-            if (data.exists && Array.isArray(data.plants) && data.plants.includes(plantNumber)){
-                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho NMNT ${plantNumber}. Bản ghi đã bị khóa, không thể chỉnh sửa.`);
+            const editable = Array.isArray(data.editable_numbers) ? data.editable_numbers.map(Number) : [];
+            const locked   = Array.isArray(data.locked_numbers)   ? data.locked_numbers.map(Number)   : [];
+
+            if (locked.includes(plantNumber)) {
+                disableInputs(form, [
+                    'input:not([type="hidden"])',
+                    'select',
+                    'textarea',
+                    'button[type="submit"]'
+                ]);
+                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho NMNT ${plantNumber}. Bản ghi đã quá hạn 24 giờ và không thể chỉnh sửa.`);
                 return;
-            } else {
+            }
+
+            if (!editable.includes(plantNumber)) {
                 const lines = filled.map(f => `- ${f.label}: ${f.value}`);
                 const ok = await showConfirmFirstSave({
                     entity: `NMNT ${plantNumber}`,
@@ -352,13 +407,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const filled = ids
             .map((id) => {
-                const cw = (
-                    form.querySelector(`input[name="clean_water_${id}"]`)?.value || ""
-                ).trim();
-                const ww = (
-                    form.querySelector(`input[name="wastewater_${id}"]`)?.value || ""
-                ).trim();
-                return cw !== "" || ww !== "" ? { id, cw, ww } : null;
+                const cw1 = (form.querySelector(`input[name="clean_water_${id}"]`)?.value || "").trim();
+                const cw2 = (form.querySelector(`input[name="clean_water_2_${id}"]`)?.value || "").trim();
+                const cw3 = (form.querySelector(`input[name="clean_water_3_${id}"]`)?.value || "").trim();
+                const ww = (form.querySelector(`input[name="wastewater_${id}"]`)?.value || "").trim();
+                const hasValue = [cw1, cw2, cw3, ww].some((v) => v !== "");
+                return hasValue ? { id, cw1, cw2, cw3, ww } : null;
             })
             .filter(Boolean);
 
@@ -375,52 +429,56 @@ document.addEventListener("DOMContentLoaded", function () {
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
 
-            // if (
-            //     data.exists &&
-            //     Array.isArray(data.customers) &&
-            //     data.customers.length
-            // ) {
-            //     const existSet = new Set(data.customers.map(Number));
-            //     const toOverwrite = filled.filter((f) => existSet.has(f.id));
-            //     if (toOverwrite.length) {
-            //         const lines = toOverwrite
-            //             .map((it) => {
-            //                 const parts = [];
-            //                 if (it.cw !== "") parts.push(`- Nước sạch: ${it.cw}`);
-            //                 if (it.ww !== "") parts.push(`- Nước thải: ${it.ww}`);
-            //                 return `KH ${it.id}:\n${parts.join("\n")}`;
-            //             })
-            //             .join("\n");
-            //         const ok = window.confirm(
-            //             `Đã có dữ liệu ngày ${dateVal} cho một số khách hàng.\n` +
-            //             `Bạn sắp ghi đè dữ liệu cho các khách hàng sau:\n\n${lines}\n\nTiếp tục?`
-            //         );
-            //         if (!ok) return;
-            //         document.getElementById("overwrite-customer-ids").value = toOverwrite
-            //             .map((x) => x.id)
-            //             .join(",");
-            //     }
-            // }
-            if (data.exists && Array.isArray(data.customers) && data.customers.length){
-                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho một số khách hàng (${data.customers.join(', ')}). Bản ghi đã bị khóa, không thể chỉnh sửa.`);
-                return;
-            } else {
-                const lines = filled.map(it => {
-                    const parts = [];
-                    if (it.cw !== '') parts.push(`- Nước sạch: ${it.cw}`);
-                    if (it.ww !== '') parts.push(`- Nước thải: ${it.ww}`);
+            const editable = new Set((Array.isArray(data.editable_ids) ? data.editable_ids : []).map(Number));
+            const locked = new Set((Array.isArray(data.locked_ids) ? data.locked_ids : []).map(Number));
 
-                    // 🔹 Lấy tên khách hàng từ hàng chứa input có id tương ứng
-                    const row = form.querySelector(`input[name="customer_ids"][value="${it.id}"]`)?.closest('tr');
+            let entries = filled.slice();
+            const lockedEntries = entries.filter((item) => locked.has(item.id));
+            if (lockedEntries.length) {
+                const lockedNames = lockedEntries.map((it) => {
+                    disableInputs(form, [
+                        `input[name="clean_water_${it.id}"]`,
+                        `input[name="clean_water_2_${it.id}"]`,
+                        `input[name="clean_water_3_${it.id}"]`,
+                        `input[name="wastewater_${it.id}"]`,
+                    ]);
+                    const row = form
+                        .querySelector(`input[name="customer_ids"][value="${it.id}"]`)
+                        ?.closest("tr");
+                    return (
+                        row?.querySelector("td strong")?.textContent.trim() || `KH ${it.id}`
+                    );
+                });
+                showLockedInfo(
+                    `Đã có dữ liệu ngày ${dateVal} cho khách hàng: ${lockedNames.join(
+                        ", "
+                    )}. Bản ghi đã quá hạn 24 giờ và không thể chỉnh sửa.`
+                );
+                entries = entries.filter((item) => !locked.has(item.id));
+                if (!entries.length) return;
+            }
+
+            const newEntries = entries.filter((item) => !editable.has(item.id));
+            if (newEntries.length) {
+                const lines = newEntries.map((it) => {
+                    const parts = [];
+                    if (it.cw1 !== "") parts.push(`- Nước sạch ĐH1: ${it.cw1}`);
+                    if (it.cw2 !== "") parts.push(`- Nước sạch ĐH2: ${it.cw2}`);
+                    if (it.cw3 !== "") parts.push(`- Nước sạch ĐH3: ${it.cw3}`);
+                    if (it.ww !== "") parts.push(`- Nước thải: ${it.ww}`);
+
+                    const row = form
+                        .querySelector(`input[name="customer_ids"][value="${it.id}"]`)
+                        ?.closest("tr");
                     const name =
-                        row?.querySelector('td strong')?.textContent.trim() ||
+                        row?.querySelector("td strong")?.textContent.trim() ||
                         `KH ${it.id}`;
 
-                    return `${name}:\n${parts.join('\n')}`;
+                    return `${name}:\n${parts.join("\n")}`;
                 });
 
                 const ok = await showConfirmFirstSave({
-                    entity: 'Khách hàng',
+                    entity: "Khách hàng",
                     date: dateVal,
                     lines,
                 });
@@ -463,29 +521,35 @@ document.addEventListener("DOMContentLoaded", function () {
                 )}`;
             const res = await fetch(url, { credentials: "same-origin" });
             const data = await res.json();
-            // if (data.exists && Array.isArray(data.tanks) && data.tanks.length) {
-            //     const existSet = new Set(data.tanks.map(Number));
-            //     const toOverwrite = entries.filter((x) => existSet.has(x.id));
-            //     if (toOverwrite.length) {
-            //         const lines = toOverwrite
-            //             .map((x) => `- Bể ${x.id}: ${x.raw} m³`)
-            //             .join("\n");
-            //         const ok = window.confirm(
-            //             `Đã có dữ liệu ngày ${dateVal} cho một số bể chứa.\n` +
-            //             `Bạn sắp ghi đè mức nước cho:\n${lines}\n\nTiếp tục?`
-            //         );
-            //         if (!ok) return;
-            //     }
-            // }
-            if (data.exists && Array.isArray(data.tanks) && data.tanks.length) {
-                showLockedInfo(`Đã có dữ liệu ngày ${dateVal} cho một số bể (${data.tanks.join(', ')}). Bản ghi đã bị khóa, không thể chỉnh sửa.`);
-                return;
-            } else {
-                const lines = entries.map(x => `- Bể ${x.id}: ${x.raw} m³`);
+            const editable = new Set((Array.isArray(data.editable_ids) ? data.editable_ids : []).map(Number));
+            const locked = new Set((Array.isArray(data.locked_ids) ? data.locked_ids : []).map(Number));
+
+            let toSubmit = entries.slice();
+            const lockedEntries = toSubmit.filter((item) => locked.has(item.id));
+            if (lockedEntries.length) {
+                lockedEntries.forEach((it) => {
+                    const inp = form.querySelector(`input[name="level_${it.id}"]`);
+                    if (inp) {
+                        inp.setAttribute("disabled", "disabled");
+                        inp.classList.add("disabled");
+                    }
+                });
+                showLockedInfo(
+                    `Đã có dữ liệu ngày ${dateVal} cho các bể (đã quá 24 giờ): ${lockedEntries
+                        .map((x) => x.id)
+                        .join(", ")}. Không thể chỉnh sửa.`
+                );
+                toSubmit = toSubmit.filter((item) => !locked.has(item.id));
+                if (!toSubmit.length) return;
+            }
+
+            const newEntries = toSubmit.filter((item) => !editable.has(item.id));
+            if (newEntries.length) {
+                const lines = newEntries.map((x) => `- Bể ${x.id}: ${x.raw} m³`);
                 const ok = await showConfirmFirstSave({
-                    entity: 'Bể chứa',
+                    entity: "Bể chứa",
                     date: dateVal,
-                    lines
+                    lines,
                 });
                 if (!ok) return;
             }
@@ -1204,7 +1268,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
             <div class="alert alert-warning mb-0">
               <i class="fas fa-lock me-2"></i><b>Lưu ý:</b>
-              Sau khi lưu thành công, bản ghi sẽ <u>bị khóa và không thể chỉnh sửa</u>.
+              Sau khi lưu thành công, bản ghi sẽ <u>bị khóa sau <b>24h</b> và không thể chỉnh sửa</u>.
             </div>
           </div>
           <div class="modal-footer border-0">
@@ -1274,5 +1338,3 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 })();
-
-

@@ -567,7 +567,8 @@ def generate_clean_water_details(start_date, end_date):
     
     # Generate table data with breakdown
     table_data = []
-    for i, d in enumerate(dates):
+    for i in range(len(dates)-1,-1,-1):
+        d =dates[i]
         record = None
         for r in query:
             if r.date == d:
@@ -675,12 +676,12 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
 
         # Table data
         table_data = [
-            {
-                'date': d.strftime('%d/%m/%Y'),
+            {    
+                'date': dates[i].strftime('%d/%m/%Y'),
                 'input_flow': input_data[i],
                 'output_flow': output_data[i]
             }
-            for i, d in enumerate(dates)
+            for i in range(len(dates)-1,-1,-1)
         ]
         
         return {
@@ -767,7 +768,8 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
 
         # Table data with columns for each plant
         table_data = []
-        for i, d in enumerate(dates):
+        for i in range(len(dates)-1,-1,-1):
+            d = dates[i]
             row = {'date': d.strftime('%d/%m/%Y')}
             for plant_name in sorted(plants_input.keys()):
                 row[f'{plant_name}_input'] = plants_input[plant_name].get(d, 0)
@@ -952,8 +954,8 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
         }
 
         table_data = [
-            {'date': d.strftime('%d/%m/%Y'), 'clean_water': clean_data[i], 'wastewater': wastewater_data[i]}
-            for i, d in enumerate(dates)
+            {'date': dates[i].strftime('%d/%m/%Y'), 'clean_water': clean_data[i], 'wastewater': wastewater_data[i]}
+            for i in range(len(dates)-1,-1,-1)
         ]
 
         return {
@@ -1030,6 +1032,7 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
 
     # Bảng dữ liệu theo ngày
     table_data = []
+    dates.reverse()
     for d in dates:
         row = {'date': d.strftime('%d/%m/%Y')}
         total_clean = 0.0
