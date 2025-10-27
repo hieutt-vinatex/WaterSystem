@@ -410,9 +410,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 const cw1 = (form.querySelector(`input[name="clean_water_${id}"]`)?.value || "").trim();
                 const cw2 = (form.querySelector(`input[name="clean_water_2_${id}"]`)?.value || "").trim();
                 const cw3 = (form.querySelector(`input[name="clean_water_3_${id}"]`)?.value || "").trim();
+                const outsource = (form.querySelector(`input[name="clean_water_outsource_${id}"]`)?.value || "").trim();
                 const ww = (form.querySelector(`input[name="wastewater_${id}"]`)?.value || "").trim();
-                const hasValue = [cw1, cw2, cw3, ww].some((v) => v !== "");
-                return hasValue ? { id, cw1, cw2, cw3, ww } : null;
+                const hasValue = [cw1, cw2, cw3, outsource, ww].some((v) => v !== "");
+                return hasValue ? { id, cw1, cw2, cw3, outsource, ww } : null;
             })
             .filter(Boolean);
 
@@ -440,6 +441,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         `input[name="clean_water_${it.id}"]`,
                         `input[name="clean_water_2_${it.id}"]`,
                         `input[name="clean_water_3_${it.id}"]`,
+                        `input[name="clean_water_outsource_${it.id}"]`,
                         `input[name="wastewater_${it.id}"]`,
                     ]);
                     const row = form
@@ -465,6 +467,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (it.cw1 !== "") parts.push(`- Nước sạch ĐH1: ${it.cw1}`);
                     if (it.cw2 !== "") parts.push(`- Nước sạch ĐH2: ${it.cw2}`);
                     if (it.cw3 !== "") parts.push(`- Nước sạch ĐH3: ${it.cw3}`);
+                    if (it.outsource !== "") parts.push(`- Nước sạch mua ngoài: ${it.outsource}`);
                     if (it.ww !== "") parts.push(`- Nước thải: ${it.ww}`);
 
                     const row = form

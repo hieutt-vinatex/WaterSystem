@@ -216,12 +216,20 @@ def _build_clean_water_plant_report_wb(start_dt: date, end_dt: date) -> Workbook
     delta2 = case(((r2 - func.coalesce(lag_r2, r2)) < 0, 0.0),
                 else_=(r2 - func.coalesce(lag_r2, r2)))
 
+    r3 = func.coalesce(getattr(CustomerReading, "clean_water_reading_3", 0.0), 0.0)
+    lag_r3 = func.lag(r3).over(
+        partition_by=CustomerReading.customer_id,
+        order_by=CustomerReading.date
+    )
+    delta3 = case(((r3 - func.coalesce(lag_r3, r3)) < 0, 0.0),
+                else_=(r3 - func.coalesce(lag_r3, r3)))
+
     # ==== CASE hệ số theo ID (fallback 1.0 nếu không match) ====
     whens_k1 = [(Customer.id == cid, f1) for cid, (f1, _) in FACTOR_BY_ID.items()]
     whens_k2 = [(Customer.id == cid, f2) for cid, (_, f2) in FACTOR_BY_ID.items()]
     k1 = case(*whens_k1, else_=1.0) if whens_k1 else 1.0
     k2 = case(*whens_k2, else_=1.0) if whens_k2 else 1.0
-    clean_delta_expr = (delta1 * k1) + (delta2 * k2)
+    clean_delta_expr = (delta1 * k1) + (delta2 * k2) + delta3
 
     # ==== Dải ngày cho LAG: cần (start_dt - 1) ====
     calc_start = start_dt - timedelta(days=1)

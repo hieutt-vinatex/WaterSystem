@@ -11,6 +11,17 @@ from model_helper import exists_by_keys, partial_update_fields, build_insert_pay
 bp = Blueprint('data_entry', __name__)
 logger = logging.getLogger(__name__)
 EDIT_WINDOW_HOURS = 48 # cho phép sửa dữ liệu nhập liệu trong vòng 48h
+COMPANIES_OUTSOURCE = [
+    'Công ty TNHH May Minh Anh',
+    'Công ty TNHH mây tre xuất khẩu Phú Minh',
+    'Công ty TNHH XNK Top Việt Nam',
+    'Công ty TNHH Dệt kim Banjie VN',
+    'Công ty TNHH Maximus Dyeing House',
+    'Công ty TNHH DK Hà Nội SB',
+    'Cty TNHH dệt may Lee Hing Việt Nam',
+    'Công ty TNHH Lucky St Vina',
+    'Công ty TNHH SX và TM Trung Dũng',
+]
 
 # Whitelist model + khóa duy nhất và kiểu dữ liệu cho khóa
 MODEL_EXISTS_MAP = {
@@ -41,7 +52,14 @@ def data_entry():
     wells = Well.query.filter_by(is_active=True).all()
     customers = Customer.query.filter_by(is_active=True).all()
     tanks = WaterTank.query.all()
-    return render_template('data_entry.html', wells=wells, customers=customers, tanks=tanks, date=date)
+    return render_template(
+        'data_entry.html',
+        wells=wells,
+        customers=customers,
+        tanks=tanks,
+        date=date,
+        companies_outsource=COMPANIES_OUTSOURCE,
+    )
 
 @bp.route('/api/exists/<model_key>')
 @login_required
@@ -516,12 +534,20 @@ def submit_customer_readings():
             cw2_raw = request.form.get(f'clean_water_2_{cid}', '')
             cw3_raw = request.form.get(f'clean_water_3_{cid}', '')
             ww_raw  = request.form.get(f'wastewater_{cid}', '')
+            outsource_raw = request.form.get(f'clean_water_outsource_{cid}', '')
             cw1_val = _pfloat(cw1_raw)
             cw2_val = _pfloat(cw2_raw)
             cw3_val = _pfloat(cw3_raw)
+            outsource_val = _pfloat(outsource_raw)
             ww_val  = _pfloat(ww_raw) if ww_raw != '' else None
-            if cw1_val is not None or cw2_val is not None or ww_val is not None or cw3_val is not None:
-                filled[cid] = {'cw1': cw1_val, 'cw2': cw2_val, 'cw3':cw3_val,'ww': ww_val}
+            if any(val is not None for val in (cw1_val, cw2_val, cw3_val, outsource_val, ww_val)):
+                filled[cid] = {
+                    'cw1': cw1_val,
+                    'cw2': cw2_val,
+                    'cw3': cw3_val,
+                    'outsource': outsource_val,
+                    'ww': ww_val,
+                }
 
         if not filled:
             flash('Không có dữ liệu để lưu', 'warning')
@@ -545,9 +571,13 @@ def submit_customer_readings():
             except (TypeError, ValueError):
                 ratio = 0.0
 
+            outsource_val = vals['outsource']
             total_clean = (cw1_val or 0.0) + (cw2_val or 0.0) + (cw3_val or 0.0)
+            total_with_outsource = total_clean + (outsource_val or 0.0)
             ww_calc = None if ww_val is not None else (
-                total_clean * ratio if (cw1_val is not None or cw2_val is not None or cw3_val is not None) else None
+                total_with_outsource * ratio
+                if any(v is not None for v in (cw1_val, cw2_val, cw3_val, outsource_val))
+                else None
             )
 
             existing = existing_map.get(cid)
@@ -558,6 +588,7 @@ def submit_customer_readings():
                 existing.clean_water_reading = (cw1_val if cw1_val is not None else 0.0)
                 existing.clean_water_reading_2 = (cw2_val if cw2_val is not None else 0.0)
                 existing.clean_water_reading_3 = (cw3_val if cw3_val is not None else 0.0)
+                existing.clean_water_outsource = (outsource_val if outsource_val is not None else 0.0)
                 existing.wastewater_reading = ww_val
                 existing.wastewater_calculated = (ww_calc if ww_val is None else None)
                 updated += 1
@@ -569,6 +600,7 @@ def submit_customer_readings():
                 clean_water_reading=(cw1_val if cw1_val is not None else 0.0),
                 clean_water_reading_2=(cw2_val if cw2_val is not None else 0.0),
                 clean_water_reading_3=(cw3_val if cw3_val is not None else 0.0),
+                clean_water_outsource=(outsource_val if outsource_val is not None else 0.0),
                 wastewater_reading=ww_val,
                 wastewater_calculated=(ww_calc if ww_val is None else None),
                 created_by=current_user.id

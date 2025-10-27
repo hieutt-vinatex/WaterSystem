@@ -720,11 +720,12 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
         
         # Color palette for plants
         colors = ['rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(75, 192, 192)', 'rgb(255, 206, 86)']
-        color_idx = 0
-        
+        color_count = len(colors)
+        color_offset = max(1, color_count // 2)  # shift so input/output lines differ
+
         # Add input datasets
-        for plant_name in sorted(plants_input.keys()):
-            color = colors[color_idx % len(colors)]
+        for idx, plant_name in enumerate(sorted(plants_input.keys())):
+            color = colors[idx % color_count]
             datasets.append({
                 'label': f'{plant_name} - Đầu vào (m³)',
                 'data': [plants_input[plant_name].get(d, 0) for d in dates],
@@ -733,12 +734,10 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
                 'fill': False,
                 'tension': 0.4
             })
-            color_idx += 1
-        
+
         # Add output datasets
-        color_idx = 0
-        for plant_name in sorted(plants_output.keys()):
-            color = colors[color_idx % len(colors)]
+        for idx, plant_name in enumerate(sorted(plants_output.keys())):
+            color = colors[(idx + color_offset) % color_count]
             datasets.append({
                 'label': f'{plant_name} - Đầu ra (m³)',
                 'data': [plants_output[plant_name].get(d, 0) for d in dates],
@@ -748,7 +747,6 @@ def generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=
                 'tension': 0.4,
                 'borderDash': [5, 5]
             })
-            color_idx += 1
         
         # --- CHANGED: Summary = chỉ lấy đầu vào (tổng tất cả NMNT) ---
         input_total_each_day = []
@@ -837,8 +835,8 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
     ]
 
     clean_delta_expr = case(
-        (Customer.company_name.in_(companies_NHY), (delta1 * 10) + delta2),
-        (Customer.company_name.in_(companies_LH), delta1 + delta2*10),
+        (Customer.company_name.in_(companies_NHY), (delta1 * 10) + delta2 + delta3),
+        (Customer.company_name.in_(companies_LH), delta1 + delta2*10 + delta3), 
         else_=delta1
     )
 
@@ -989,6 +987,7 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
         'rgb(255, 99, 255)', 'rgb(99, 255, 132)'
     ]
     datasets = []
+    color_offset = max(1, len(colors) // 2)  # shift palette so clean/wastewater lines differ
     # NS theo khách
     for idx, name in enumerate(sorted(customers_clean.keys())):
         color = colors[idx % len(colors)]
@@ -1002,7 +1001,7 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
         })
     # NT theo khách (dashed)
     for idx, name in enumerate(sorted(customers_wastewater.keys())):
-        color = colors[idx % len(colors)]
+        color = colors[(idx + color_offset) % len(colors)]
         datasets.append({
             'label': f'{name} - Nước thải (m³)',
             'data': [customers_wastewater[name].get(d, 0) for d in dates],
@@ -1199,4 +1198,3 @@ def customer_details_api():
     )
 
     return jsonify(data)
-

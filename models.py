@@ -107,6 +107,7 @@ class CustomerReading(db.Model):
     clean_water_reading = db.Column(db.Float)  # m3 chỉ số của đh 1
     clean_water_reading_2 = db.Column(db.Float) #m3 chỉ sổ của đh 2
     clean_water_reading_3 = db.Column(db.Float) #m3 chỉ sổ của đh 3
+    clean_water_outsource = db.Column(db.Float) # m3 nước sạch mua ngoài
     wastewater_reading = db.Column(db.Float)  # m3 (for large customers)
     wastewater_calculated = db.Column(db.Float)  # m3 (calculated from ratio)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
