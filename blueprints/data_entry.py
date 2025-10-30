@@ -125,7 +125,7 @@ def _clean_water_production_today_entry(today):
         return float(cur_sum) - float(prev_sum)
 def _compute_clean_water_output_for_date(the_date: date, jasan_raw:float):
     """
-    NS SX ngày n = 0.98 * ( H(n) - J(n) )
+    NS SX ngày n = 0.97 * ( H(n) - J(n) )
     H(n): tổng sản lượng giếng trong ngày n (sum(today) - sum(yesterday))
     J(n): Jasan thô trong ngày n
     """
@@ -141,7 +141,7 @@ def _compute_clean_water_output_for_date(the_date: date, jasan_raw:float):
         jasan_raw = max(float(jasan_raw), 0.0)
 
         # NS SX ngày (clamp về 0 nếu âm)
-        value = 0.98 * max(wells_delta - jasan_raw, 0.0)
+        value = 0.97 * max(wells_delta - jasan_raw, 0.0)
 
         return {
             'ready': True,
@@ -149,7 +149,7 @@ def _compute_clean_water_output_for_date(the_date: date, jasan_raw:float):
             'detail': {
                 'wells_delta': wells_delta,   # H(n)
                 'jasan_raw': jasan_raw,       # J(n)
-                'factor': 0.98
+                'factor': 0.97
             }
         }
     except Exception as e:

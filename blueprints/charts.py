@@ -59,8 +59,8 @@ def _get_daily_production(today, yesterday):
     inventory_yesterday = _get_tank_inventory_yesterday(yesterday)
     inventory_today = _get_tank_inventory_today(today)
     if(today.day==1):
-        return (clean_without_jasan - today_jasan) * 0.98
-    return float((clean_without_jasan - today_jasan) * 0.98 + inventory_yesterday - inventory_today)
+        return (clean_without_jasan - today_jasan) * 0.97
+    return float((clean_without_jasan - today_jasan) * 0.97 + inventory_yesterday - inventory_today)
 
 
     #lượng nước sạch nhà máy nước sạch
@@ -211,71 +211,131 @@ def dashboard_data():
         ).filter(WastewaterPlant.date >= start_date, WastewaterPlant.date <= end_date)\
          .group_by(WastewaterPlant.date).all()
 
-       # 3 đồng hồ nước sạch (nếu có)
+        # Dữ liệu tiêu thụ khách hàng (khớp với generate_customer_details)
+        calc_start = start_date - timedelta(days=1)
+
+        # Đồng hồ 1/2/3 theo từng khách
         r1 = func.coalesce(CustomerReading.clean_water_reading, 0)
+        lag_r1 = func.lag(r1).over(
+            partition_by=CustomerReading.customer_id,
+            order_by=CustomerReading.date
+        )
+        delta1 = case(
+            (((r1 - func.coalesce(lag_r1, r1)) < 0), 0),
+            else_=(r1 - func.coalesce(lag_r1, r1))
+        )
+
         r2 = func.coalesce(getattr(CustomerReading, 'clean_water_reading_2', 0), 0)
+        lag_r2 = func.lag(r2).over(
+            partition_by=CustomerReading.customer_id,
+            order_by=CustomerReading.date
+        )
+        delta2 = case(
+            (((r2 - func.coalesce(lag_r2, r2)) < 0), 0),
+            else_=(r2 - func.coalesce(lag_r2, r2))
+        )
+
         r3 = func.coalesce(getattr(CustomerReading, 'clean_water_reading_3', 0), 0)
-        total_ns = r1 + r2 + r3
-
-        lag_total_ns = func.lag(total_ns).over(
+        lag_r3 = func.lag(r3).over(
             partition_by=CustomerReading.customer_id,
             order_by=CustomerReading.date
         )
-        delta_ns = case(
-            (((total_ns - func.coalesce(lag_total_ns, total_ns)) < 0), 0),
-            else_=(total_ns - func.coalesce(lag_total_ns, total_ns))
-        ).label('delta_ns')
+        delta3 = case(
+            (((r3 - func.coalesce(lag_r3, r3)) < 0), 0),
+            else_=(r3 - func.coalesce(lag_r3, r3))
+        )
 
-        # Nước thải: nếu có đồng hồ NT thì lấy delta theo đồng hồ; nếu không, tính theo tỉ lệ KH
-        r_nt = func.coalesce(CustomerReading.wastewater_reading, 0)
-        lag_nt = func.lag(r_nt).over(
+        companies_NHY = [
+            'Cty TNHH Dệt và Nhuộm Hưng Yên',
+        ]
+        companies_LH = [
+            'Cty TNHH dệt may Lee Hing Việt Nam'
+        ]
+
+        clean_delta_expr = case(
+            (Customer.company_name.in_(companies_NHY), (delta1 * 10) + delta2 + delta3),
+            (Customer.company_name.in_(companies_LH), delta1 + delta2 * 10),
+            else_=delta1
+        )
+
+        total_waste = func.coalesce(
+            CustomerReading.wastewater_reading,
+            CustomerReading.wastewater_calculated
+        )
+        lag_total_waste = func.lag(total_waste).over(
             partition_by=CustomerReading.customer_id,
             order_by=CustomerReading.date
         )
-        delta_nt_meter = case(
-            (CustomerReading.wastewater_reading.is_(None), None),
-            else_=case(
-                (((r_nt - func.coalesce(lag_nt, r_nt)) < 0), 0),
-                else_=(r_nt - func.coalesce(lag_nt, r_nt))
-            )
+        wastewater_delta_expr = case(
+            (((total_waste - func.coalesce(lag_total_waste, total_waste)) < 0), 0),
+            else_=(total_waste - func.coalesce(lag_total_waste, total_waste))
         )
 
-        # Subquery: delta theo từng KH/ngày (không lọc ngày ở đây để xử lý đúng biên ngày đầu kỳ)
-        subq = (
+        delta_sq_all = (
             db.session.query(
-                CustomerReading.customer_id.label('cid'),
-                CustomerReading.date.label('d'),
-                delta_ns,
-                # nếu không có đồng hồ NT, tính theo tỉ lệ nước thải của KH
-                func.coalesce(delta_nt_meter, delta_ns * Customer.water_ratio).label('delta_nt')
+                CustomerReading.date.label('date'),
+                CustomerReading.customer_id.label('customer_id'),
+                clean_delta_expr.label('clean_delta'),
+                wastewater_delta_expr.label('wastewater_delta')
             )
             .join(Customer, Customer.id == CustomerReading.customer_id)
             .filter(
+                CustomerReading.date >= calc_start,
+                CustomerReading.date <= end_date,
                 Customer.is_active.is_(True),
-                Customer.daily_reading.is_(True)
+                Customer.daily_reading.is_(True),
             )
         ).subquery()
 
-        # Tổng theo ngày trong khoảng yêu cầu
-        customer_data = (
+        top_rows = (
             db.session.query(
-                subq.c.d.label('date'),
-                func.sum(subq.c.delta_ns).label('total_clean_water'),
-                func.sum(subq.c.delta_nt).label('total_wastewater')
+                delta_sq_all.c.customer_id,
+                func.sum(delta_sq_all.c.clean_delta).label('sum_clean_delta')
             )
-            .filter(
-                subq.c.d >= start_date,
-                subq.c.d <= end_date
-            )
-            .group_by(subq.c.d)
-            .order_by(subq.c.d)
+            .group_by(delta_sq_all.c.customer_id)
+            .order_by(func.sum(delta_sq_all.c.clean_delta).desc())
+            .limit(4)
             .all()
         )
+        top_customer_ids = [row.customer_id for row in top_rows]
+
+        customer_rows = (
+            db.session.query(
+                delta_sq_all.c.date,
+                func.sum(delta_sq_all.c.clean_delta).label('total_clean'),
+                func.sum(delta_sq_all.c.wastewater_delta).label('total_waste')
+            )
+            .filter(
+                delta_sq_all.c.date >= start_date,
+                *( [delta_sq_all.c.customer_id.in_(top_customer_ids)] if top_customer_ids else [] )
+            )
+            .group_by(delta_sq_all.c.date)
+            .order_by(delta_sq_all.c.date)
+            .all()
+        )
+
+        customer_map = {
+            row.date: {
+                'clean': float(row.total_clean or 0),
+                'waste': float(row.total_waste or 0)
+            }
+            for row in customer_rows
+        }
+
+        customer_data = []
+        for d in dates:
+            values = customer_map.get(d, {'clean': 0.0, 'waste': 0.0})
+            customer_data.append({
+                'date': str(d),
+                'clean_water': values['clean'],
+                'wastewater': values['waste']
+            })
+
         return jsonify({
             'well_production': well_series,
             'clean_water': clean_water_series,
             'wastewater': [{'date': str(d.date), 'input': float(d.total_input or 0), 'output': float(d.total_output or 0)} for d in wastewater_data],
-            'customer_consumption': [{'date': str(d.date), 'clean_water': float(d.total_clean_water or 0), 'wastewater': float(d.total_wastewater or 0)} for d in customer_data]
+            'customer_consumption': customer_data
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -538,7 +598,7 @@ def generate_clean_water_details(start_date, end_date):
     for d in dates:
         daily_val = _clean_water_production_today(d)
         daily_jasan = _get_today_jasan(d)
-        data.append(float(daily_val - daily_jasan)*0.98)
+        data.append(float(daily_val - daily_jasan)*0.97)
     # Hiển thị trên chart: nếu giá trị âm thì = 0
     data = [v if v >= 0 else 0 for v in data]
     
@@ -589,7 +649,7 @@ def generate_clean_water_details(start_date, end_date):
         # print(inventory_yesterday,inventory_today)
 
         # 2.2 Nước sạch cấp cho KH trong ngày
-        total = 0.98 * max(wells_delta - jasan_raw, 0.0) + (inventory_yesterday - inventory_today)
+        total = 0.97 * max(wells_delta - jasan_raw, 0.0) + (inventory_yesterday - inventory_today)
 
         # Nếu cần, vẫn hiển thị riêng clean_output đã lưu trong DB (nếu có)
         clean_output = float(record.clean_water_output or 0) if record else 0.0
@@ -836,7 +896,7 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
 
     clean_delta_expr = case(
         (Customer.company_name.in_(companies_NHY), (delta1 * 10) + delta2 + delta3),
-        (Customer.company_name.in_(companies_LH), delta1 + delta2*10 + delta3), 
+        (Customer.company_name.in_(companies_LH), delta1 + delta2*10), 
         else_=delta1
     )
 

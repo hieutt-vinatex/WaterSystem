@@ -624,11 +624,9 @@ def _build_monthly_wastewater_1_wb(start_dt: date, end_dt: date) -> Workbook:
 
     # Table header
     headers = ['Stt', 'Nội dung'] + [f'T{m}' for m in months] + ['Tổng cộng']
-    ws.append([''] * 2)  # row 3 spacer
-    ws.append(headers)   # row 5 (since row 1,2,3,4 already)
     header_row = 5
-    for c in range(1, total_cols + 1):
-        cell = ws.cell(row=header_row, column=c)
+    for col_idx, value in enumerate(headers, start=1):
+        cell = ws.cell(row=header_row, column=col_idx, value=value)
         cell.font = header_font
         cell.alignment = title_center
         cell.border = border
@@ -798,11 +796,9 @@ def _build_monthly_wastewater_2_wb(start_dt: date, end_dt: date) -> Workbook:
 
     # Table header
     headers = ['Stt', 'Nội dung'] + [f'T{m}' for m in months] + ['Tổng cộng']
-    ws.append([''] * 2)  # row 3 spacer
-    ws.append(headers)   # row 5 (since row 1,2,3,4 already)
     header_row = 5
-    for c in range(1, total_cols + 1):
-        cell = ws.cell(row=header_row, column=c)
+    for col_idx, value in enumerate(headers, start=1):
+        cell = ws.cell(row=header_row, column=col_idx, value=value)
         cell.font = header_font
         cell.alignment = title_center
         cell.border = border
