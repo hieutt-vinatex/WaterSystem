@@ -185,8 +185,8 @@ def _build_clean_water_plant_report_wb(start_dt: date, end_dt: date) -> Workbook
     customer_columns = ['NHUỘM HY', 'LEEHING HT', 'LEEHING TT', 'JASAN', 'LỆ TINH']
     cust_col_map = {
         'NHUỘM HY':   [13],
-        'LEEHING HT': [25],   # nếu về sau tách TT riêng thì thêm id vào 'LEEHING TT'
-        'LEEHING TT': [],
+        'LEEHING HT': [25],  
+        'LEEHING TT': [],  # Lấy dữ liệu từ clean_water_outsource thay vì delta chỉ số
         'JASAN':      [21],
         'LỆ TINH':    [26],
     }
@@ -224,6 +224,17 @@ def _build_clean_water_plant_report_wb(start_dt: date, end_dt: date) -> Workbook
     delta3 = case(((r3 - func.coalesce(lag_r3, r3)) < 0, 0.0),
                 else_=(r3 - func.coalesce(lag_r3, r3)))
 
+    # Δ lượng nước mua ngoài theo khách hàng
+    outsource_val = func.coalesce(CustomerReading.clean_water_outsource, 0.0)
+    lag_outsource = func.lag(outsource_val).over(
+        partition_by=CustomerReading.customer_id,
+        order_by=CustomerReading.date
+    )
+    outsource_delta_expr = case(
+        ((outsource_val - func.coalesce(lag_outsource, outsource_val)) < 0, 0.0),
+        else_=(outsource_val - func.coalesce(lag_outsource, outsource_val))
+    )
+
     # ==== CASE hệ số theo ID (fallback 1.0 nếu không match) ====
     whens_k1 = [(Customer.id == cid, f1) for cid, (f1, _) in FACTOR_BY_ID.items()]
     whens_k2 = [(Customer.id == cid, f2) for cid, (_, f2) in FACTOR_BY_ID.items()]
@@ -260,35 +271,45 @@ def _build_clean_water_plant_report_wb(start_dt: date, end_dt: date) -> Workbook
         .all()
     )
 
-    # --- Đưa vào 5 cột DN (bỏ ngày calc_start khi hiển thị) ---
+    outsource_sq = (
+        db.session.query(
+            CustomerReading.date.label('date'),
+            CustomerReading.customer_id.label('customer_id'),
+            outsource_delta_expr.label('delta_outsource')
+        )
+        .join(Customer, Customer.id == CustomerReading.customer_id)
+        .filter(
+            CustomerReading.date >= calc_start,
+            CustomerReading.date <= end_dt,
+            Customer.is_active.is_(True)
+        )
+    ).subquery()
+
+    # --- Map dữ liệu vào các cột doanh nghiệp ---
     cust_series = {k: {} for k in customer_columns}
     for d, cid, total_clean in readings:
         if d < start_dt:
             continue
-        val = float(total_clean or 0.0)
-        for col, ids in cust_col_map.items():
-            if cid in ids:
-                cust_series[col][d] = float(cust_series[col].get(d, 0.0)) + val
-                break
-
-    # 2) Ghép vào các cột doanh nghiệp đã định nghĩa
-    cust_series = {k: {} for k in customer_columns}
-    for d, cid, total_clean in readings:
         total_val = float(total_clean or 0.0)
-        # Đưa bản ghi (date,cid) về đúng cột (NHUỘM HY, LEEHING HT/TT, JASAN, LỆ TINH)
         for col, ids in cust_col_map.items():
             if cid in ids:
-                # Nếu cùng ngày/cột đã có giá trị từ KH khác (cùng nhóm), cộng dồn
                 cust_series[col][d] = float(cust_series[col].get(d, 0.0)) + total_val
                 break
 
-    # Build per-column map
-    cust_series = {k: {} for k in customer_columns}
-    for d, cid, total_clean in readings:
-        for col, ids in cust_col_map.items():
-            if cid in ids:
-                cust_series[col][d] = float(total_clean or 0) + float(cust_series[col].get(d, 0))
-                break
+    # --- LEEHING TT: dùng lượng nước sạch mua ngoài ---
+    outsource_rows = (
+        db.session.query(
+            outsource_sq.c.date,
+            func.sum(outsource_sq.c.delta_outsource).label('total_outsource')
+        )
+        .group_by(outsource_sq.c.date)
+        .all()
+    )
+    for row in outsource_rows:
+        if row.date < start_dt:
+            continue
+        prev_val = float(cust_series['LEEHING TT'].get(row.date, 0.0))
+        cust_series['LEEHING TT'][row.date] = prev_val + float(row.total_outsource or 0.0)
 
     # Write data rows
     row_idx = 4
