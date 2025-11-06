@@ -158,29 +158,48 @@
     </div>
 </div>
 <!-- Chưa cho xem vì chưa hoàn thiện chart -->
-{% if current_user.username == 'tonggiamdoc11' %}
+{% if current_user.role.value in ['leadership'] %}
 <div class="col-12 mt-4">
     <div class="card shadow-sm" id="summaryCard">
         <div class="card-body">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-chart-line text-primary me-2"></i>
-                        Hệ thống Cấp - Thoát Nước
-                    </h5>
-                    <div>
-                        <button id="toggleChartBtn" class="btn btn-outline-secondary btn-sm me-2">
-                            <i class="fas fa-compress-alt"></i> Thu gọn
-                        </button>
-                        <select id="periodSelect" class="form-select form-select-sm d-inline-block" style="width:auto;">
-                            <option value="current">Kỳ hiện tại (25 này)</option>
-                            <option value="previous">Kỳ trước</option>
-                        </select>
+            <div class="summary-filter-bar mb-3">
+                <div class="row g-3 align-items-center">
+                    <div class="col-xl-3 col-lg-4">
+                        <h5 class="card-title mb-0 d-flex align-items-center text-truncate text-primary-emphasis">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Hệ thống Cấp - Thoát Nước
+                        </h5>
+                    </div>
+                    <div class="col-xl-9 col-lg-8">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-4 col-sm-6">
+                                <label class="form-label summary-filter-label mb-1">Khoảng thời gian</label>
+                                <select id="periodSelect" class="form-select form-select-sm summary-filter-control">
+                                    <option value="current">Kỳ hiện tại (25 này)</option>
+                                    <option value="previous">Kỳ trước</option>
+                                    <option value="custom">Khoảng tùy chọn</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <label class="form-label summary-filter-label mb-1">Từ ngày</label>
+                                <input type="date" class="form-control form-control-sm summary-filter-control" id="summaryStartDate">
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <label class="form-label summary-filter-label mb-1">Đến ngày</label>
+                                <input type="date" class="form-control form-control-sm summary-filter-control" id="summaryEndDate">
+                            </div>
+                            <div class="col-md-2 col-sm-6">
+                                <label class="form-label summary-filter-label mb-1 d-none d-sm-block">&nbsp;</label>
+                                <button id="toggleChartBtn" class="btn btn-outline-secondary btn-sm w-100 mt-1 mt-sm-0 summary-toggle-btn">
+                                    <i class="fas fa-compress-alt me-1"></i>Thu gọn
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             <div id="summaryChartWrapper" class="mt-3" style="transition: all .3s ease;">
-                <canvas id="summarySixLinesChart" height="90"></canvas>
+                <div id="summarySixLinesChart" style="height: 360px;"></div>
             </div>
         </div>
     </div>

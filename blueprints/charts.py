@@ -1,11 +1,13 @@
 import logging, random
+from collections import defaultdict
 from datetime import datetime, date, timedelta
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, flash
-from flask_login import login_required,current_user
+from flask_login import login_required, current_user
 from app import db
 from models import Well, WellProduction, CleanWaterPlant, WastewaterPlant, CustomerReading, Customer, WaterTankLevel
 from sqlalchemy import func, case
 from sqlalchemy.sql import over
+from utils import check_permissions
 
 bp = Blueprint('charts', __name__)
 logger = logging.getLogger(__name__)
@@ -1118,73 +1120,133 @@ def generate_customer_details(start_date, end_date, customer_ids=None, aggregate
 @bp.route('/api/summary-six-lines')
 @login_required
 def summary_six_lines():
-    # --- Giới hạn quyền ()---
-    if current_user.username not in ['tonggiamdoc11', 'admin11']:
+    # --- Phân quyền dựa trên role thay vì username cứng ---
+    if not check_permissions(current_user.role, ['leadership', 'plant_manager', 'admin']):
         return jsonify({'error': 'forbidden'}), 403
 
     # --- Nhận khoảng thời gian từ query ---
     start_str = request.args.get('start_date')
     end_str = request.args.get('end_date')
+    period = request.args.get('period', 'current')
     try:
         if start_str and end_str:
             start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+            if start_date > end_date:
+                return jsonify({'error': 'invalid_range'}), 400
         else:
-            # Mặc định kỳ 25 gần nhất
+            # Mặc định kỳ 25 gần nhất, hỗ trợ kỳ trước
             today = date.today()
-            if today.day >= 25:
-                start_date = today.replace(day=25)
+            def _cycle_start(ref_date: date) -> date:
+                if ref_date.day >= 26:
+                    return ref_date.replace(day=26)
+                prev_month = ref_date.replace(day=1) - timedelta(days=1)
+                return prev_month.replace(day=26)
+
+            current_cycle_start = _cycle_start(today)
+            if period == 'previous':
+                prev_ref = current_cycle_start - timedelta(days=1)
+                start_date = _cycle_start(prev_ref)
             else:
-                prev_month = today.replace(day=1) - timedelta(days=1)
-                start_date = prev_month.replace(day=25)
+                start_date = current_cycle_start
             end_date = start_date + timedelta(days=30)
     except Exception:
         return jsonify({'error': 'invalid_date'}), 400
 
-    # --- Lấy dữ liệu ---
-    wells = db.session.query(
-        WellProduction.date, db.func.sum(WellProduction.production)
-    ).filter(WellProduction.date >= start_date, WellProduction.date <= end_date).group_by(WellProduction.date).all()
+    # --- Chuẩn bị dải ngày ---
+    dates = []
+    cur = start_date
+    while cur <= end_date:
+        dates.append(cur)
+        cur += timedelta(days=1)
 
-    clean = db.session.query(
-        CleanWaterPlant.date,
-        db.func.sum(CleanWaterPlant.clean_water_output),
-        db.func.sum(CleanWaterPlant.pac_usage + CleanWaterPlant.naoh_usage + CleanWaterPlant.polymer_usage)
-    ).filter(CleanWaterPlant.date >= start_date, CleanWaterPlant.date <= end_date).group_by(CleanWaterPlant.date).all()
+    if not dates:
+        return jsonify({
+            'labels': [],
+            'datasets': [],
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d')
+        })
 
-    cust = db.session.query(
-        CustomerReading.date,
-        db.func.sum(CustomerReading.clean_water_reading),
-        db.func.sum(db.case(
-            (CustomerReading.wastewater_reading.isnot(None), CustomerReading.wastewater_reading),
-            else_=CustomerReading.wastewater_calculated
-        ))
-    ).filter(CustomerReading.date >= start_date, CustomerReading.date <= end_date).group_by(CustomerReading.date).all()
+    labels = [d.strftime('%d/%m') for d in dates]
 
-    waste = db.session.query(
-        WastewaterPlant.date,
-        db.func.sum(WastewaterPlant.output_flow_tqt),
-        db.func.sum(WastewaterPlant.sludge_output),
-        db.func.sum(WastewaterPlant.chemical_usage)
-    ).filter(WastewaterPlant.date >= start_date, WastewaterPlant.date <= end_date).group_by(WastewaterPlant.date).all()
+    def _extract_series(data_resp, dataset_index=0):
+        series = [0.0] * len(dates)
+        try:
+            datasets = data_resp.get('chart_data', {}).get('datasets', [])
+            dataset = datasets[dataset_index]
+            raw_data = dataset.get('data', [])
+            for idx in range(len(dates)):
+                if idx < len(raw_data):
+                    series[idx] = float(raw_data[idx] or 0)
+        except (AttributeError, IndexError, TypeError):
+            pass
+        return series
 
-    # --- Tổng hợp ---
-    days = sorted({d for s in [wells, clean, cust, waste] for d, *_ in s})
-    data = defaultdict(lambda: dict(well=0, clean=0, cust=0, waste=0, chem=0, sludge=0))
-    for d, v in wells: data[d]['well'] = v
-    for d, v, c in clean: data[d]['clean'] = v; data[d]['chem'] += c
-    for d, v1, v2 in cust: data[d]['cust'] = v1; data[d]['waste'] += v2
-    for d, v1, v2, v3 in waste: data[d]['waste'] += v1; data[d]['sludge'] += v2; data[d]['chem'] += v3
+    # --- Lấy dữ liệu theo đúng logic từng biểu đồ ---
+    wells_resp = get_well_production_range(start_date, end_date, aggregate=True)
+    well_series = _extract_series(wells_resp, 0)
 
-    labels = [d.strftime('%d/%m') for d in days]
-    values = [data[d] for d in days]
+    clean_resp = generate_clean_water_details(start_date, end_date)
+    clean_series = _extract_series(clean_resp, 0)
+
+    customers_resp = generate_customer_details(start_date, end_date, customer_ids=None, aggregate=True)
+    customer_clean_series = _extract_series(customers_resp, 0)
+
+    wastewater_resp = generate_wastewater_details(start_date, end_date, plant_ids=None, aggregate=True)
+    wastewater_series = _extract_series(wastewater_resp, 0)
+
+    # Hóa chất & bùn thải
+    chem_map = defaultdict(float)
+    sludge_map = defaultdict(float)
+
+    clean_chem_expr = (
+        func.coalesce(CleanWaterPlant.pac_usage, 0) +
+        func.coalesce(CleanWaterPlant.naoh_usage, 0) +
+        func.coalesce(CleanWaterPlant.polymer_usage, 0)
+    )
+    clean_chem_rows = (
+        db.session.query(
+            CleanWaterPlant.date,
+            func.sum(clean_chem_expr).label('total_chem')
+        )
+        .filter(CleanWaterPlant.date >= start_date, CleanWaterPlant.date <= end_date)
+        .group_by(CleanWaterPlant.date)
+        .all()
+    )
+    for row in clean_chem_rows:
+        chem_map[row.date] += float(row.total_chem or 0)
+
+    waste_aux_rows = (
+        db.session.query(
+            WastewaterPlant.date,
+            func.sum(func.coalesce(WastewaterPlant.sludge_output, 0)).label('total_sludge'),
+            func.sum(func.coalesce(WastewaterPlant.chemical_usage, 0)).label('total_chem')
+        )
+        .filter(WastewaterPlant.date >= start_date, WastewaterPlant.date <= end_date)
+        .group_by(WastewaterPlant.date)
+        .all()
+    )
+    for row in waste_aux_rows:
+        sludge_map[row.date] += float(row.total_sludge or 0)
+        chem_map[row.date] += float(row.total_chem or 0)
+
+    chem_series = [chem_map.get(d, 0.0) for d in dates]
+    sludge_series = [sludge_map.get(d, 0.0) for d in dates]
+
+    # Nước thải cân theo NM xử lý; tổng hợp giữ nguyên công thức NT + HC + BT
+    total_series = [
+        wastewater_series[idx] + chem_series[idx] + sludge_series[idx]
+        for idx in range(len(dates))
+    ]
+
     datasets = [
-        {'label': 'Giếng khoan', 'data': [x['well'] for x in values], 'borderColor': '#007bff', 'fill': False},
-        {'label': 'Nước sạch', 'data': [x['clean'] for x in values], 'borderColor': '#28a745', 'fill': False},
-        {'label': 'Nước cấp KH', 'data': [x['cust'] for x in values], 'borderColor': '#ffc107', 'fill': False},
-        {'label': 'Nước thải', 'data': [x['waste'] for x in values], 'borderColor': '#dc3545', 'fill': False},
-        {'label': 'Hóa chất NMNS', 'data': [x['chem'] for x in values], 'borderColor': '#6610f2', 'borderDash': [5,5], 'fill': False},
-        {'label': 'Tổng hợp (NT+HC+BT)', 'data': [x['waste']+x['chem']+x['sludge'] for x in values], 'borderColor': '#20c997', 'fill': False}
+        {'label': 'Giếng khoan', 'data': well_series, 'borderColor': '#007bff', 'fill': False},
+        {'label': 'Nước sạch', 'data': clean_series, 'borderColor': '#28a745', 'fill': False},
+        {'label': 'Nước cấp KH', 'data': customer_clean_series, 'borderColor': '#ffc107', 'fill': False},
+        {'label': 'Nước thải', 'data': wastewater_series, 'borderColor': '#dc3545', 'fill': False},
+        {'label': 'Hóa chất NMNS', 'data': chem_series, 'borderColor': '#6610f2', 'borderDash': [5, 5], 'fill': False},
+        # {'label': 'Tổng hợp (NT+HC+BT)', 'data': total_series, 'borderColor': '#20c997', 'fill': False}
     ]
 
     return jsonify({

@@ -315,43 +315,86 @@ function initDashboardDatePicker() {
     dateInput.addEventListener('change', onApply);
 }
 
-async function loadSummarySixLinesChart(period = "current") {
+async function loadSummarySixLinesChart(options = {}) {
   try {
-    const res = await fetch(`/api/summary-six-lines?period=${period}`);
+    const { period = 'current', startDate, endDate } = options;
+    const params = new URLSearchParams();
+
+    if (startDate && endDate) {
+      params.set('start_date', startDate);
+      params.set('end_date', endDate);
+    } else {
+      params.set('period', period);
+    }
+
+    const res = await fetch(`/api/summary-six-lines?${params.toString()}`);
     if (!res.ok) {
       console.warn("No permission or API error");
       return;
     }
     const data = await res.json();
-    const ctx = document.getElementById('summarySixLinesChart').getContext('2d');
-    if (window.summaryChart) window.summaryChart.destroy();
-
-    window.summaryChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: data.labels,
-        datasets: data.datasets.map(ds => ({
-          ...ds,
-          borderWidth: 2,
-          tension: 0.3,
-          pointRadius: 0
-        }))
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'bottom' },
-          title: {
-            display: true,
-            text: 'Tổng hợp sản lượng – nước sạch – thải – hóa chất',
-            font: { size: 15 }
-          }
-        },
-        interaction: { mode: 'index', intersect: false },
-        scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'm³ / kg' } }
-        }
+    const startInput = document.getElementById('summaryStartDate');
+    const endInput = document.getElementById('summaryEndDate');
+    if (startInput && endInput) {
+      if (startDate && endDate) {
+        startInput.value = startDate;
+        endInput.value = endDate;
+      } else if (data.start_date && data.end_date) {
+        startInput.value = data.start_date;
+        endInput.value = data.end_date;
       }
+    }
+    const container = document.getElementById('summarySixLinesChart');
+    if (!container || typeof Highcharts === 'undefined') {
+      console.warn('Highcharts container not ready');
+      return;
+    }
+    if (window.summaryChart) {
+      window.summaryChart.destroy();
+    }
+
+    const series = data.datasets.map(ds => ({
+      name: ds.label,
+      data: (ds.data || []).map(Number),
+      color: ds.borderColor,
+      dashStyle: Array.isArray(ds.borderDash) ? 'Dash' : 'Solid',
+      marker: { enabled: false },
+      lineWidth: 2
+    }));
+
+    window.summaryChart = Highcharts.chart('summarySixLinesChart', {
+      chart: {
+        type: 'spline',
+        backgroundColor: 'transparent'
+      },
+      title: {
+        text: 'Tổng hợp sản lượng – nước sạch – thải – hóa chất',
+        style: { fontSize: '15px' }
+      },
+      xAxis: {
+        categories: data.labels,
+        tickmarkPlacement: 'on',
+        crosshair: true
+      },
+      yAxis: {
+        min: 0,
+        title: { text: 'm³ / kg' }
+      },
+      tooltip: {
+        shared: true,
+        valueDecimals: 2
+      },
+      legend: {
+        align: 'center',
+        verticalAlign: 'bottom'
+      },
+      credits: { enabled: false },
+      plotOptions: {
+        series: {
+          animation: { duration: 500 }
+        }
+      },
+      series
     });
   } catch (err) {
     console.error('Error loading summary chart:', err);
@@ -362,19 +405,65 @@ document.addEventListener('DOMContentLoaded', function() {
   const btn = document.getElementById('toggleChartBtn');
   const wrapper = document.getElementById('summaryChartWrapper');
   const select = document.getElementById('periodSelect');
-  
+  const startInput = document.getElementById('summaryStartDate');
+  const endInput = document.getElementById('summaryEndDate');
+
   if (btn && wrapper) {
     btn.addEventListener('click', () => {
       const collapsed = wrapper.style.display === 'none';
       wrapper.style.display = collapsed ? 'block' : 'none';
       btn.innerHTML = collapsed
-        ? '<i class="fas fa-compress-alt"></i> Thu gọn'
-        : '<i class="fas fa-expand-alt"></i> Mở rộng';
+        ? '<i class="fas fa-compress-alt me-1"></i>Thu gọn'
+        : '<i class="fas fa-expand-alt me-1"></i>Mở rộng';
     });
   }
 
   if (select) {
-    select.addEventListener('change', e => loadSummarySixLinesChart(e.target.value));
+    select.addEventListener('change', e => {
+      const value = e.target.value;
+      if (value === 'custom') {
+        return;
+      }
+      if (startInput) startInput.value = '';
+      if (endInput) endInput.value = '';
+      loadSummarySixLinesChart({ period: value });
+    });
+  }
+
+  const handleDateChange = () => {
+    if (!startInput || !endInput) return;
+    const startVal = startInput.value;
+    const endVal = endInput.value;
+
+    if (!startVal && !endVal) {
+      if (select) {
+        select.value = 'current';
+        loadSummarySixLinesChart({ period: 'current' });
+      }
+      return;
+    }
+
+    if (!startVal || !endVal) {
+      return;
+    }
+
+    if (startVal > endVal) {
+      alert('Từ ngày phải nhỏ hơn hoặc bằng Đến ngày.');
+      return;
+    }
+
+    if (select) {
+      select.value = 'custom';
+    }
+    loadSummarySixLinesChart({ startDate: startVal, endDate: endVal });
+  };
+
+  if (startInput) {
+    startInput.addEventListener('change', handleDateChange);
+  }
+
+  if (endInput) {
+    endInput.addEventListener('change', handleDateChange);
   }
 
   // Chỉ gọi nếu chart tồn tại
