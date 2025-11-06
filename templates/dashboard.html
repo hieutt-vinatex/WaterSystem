@@ -158,7 +158,7 @@
     </div>
 </div>
 <!-- Chưa cho xem vì chưa hoàn thiện chart -->
-{% if current_user.role.value in ['leadership'] %}
+{% if current_user.role.value in ['leadership'] or current_user.username in ['admin']%}
 <div class="col-12 mt-4">
     <div class="card shadow-sm" id="summaryCard">
         <div class="card-body">
@@ -205,7 +205,6 @@
     </div>
 </div>
 {% endif %}
-
 
 
 <!-- Chart Controls -->
