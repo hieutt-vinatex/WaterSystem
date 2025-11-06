@@ -1132,14 +1132,16 @@ def summary_six_lines():
         if start_str and end_str:
             start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+            if start_date > end_date:
+                return jsonify({'error': 'invalid_range'}), 400
         else:
             # Mặc định kỳ 25 gần nhất, hỗ trợ kỳ trước
             today = date.today()
             def _cycle_start(ref_date: date) -> date:
-                if ref_date.day >= 25:
-                    return ref_date.replace(day=25)
+                if ref_date.day >= 26:
+                    return ref_date.replace(day=26)
                 prev_month = ref_date.replace(day=1) - timedelta(days=1)
-                return prev_month.replace(day=25)
+                return prev_month.replace(day=26)
 
             current_cycle_start = _cycle_start(today)
             if period == 'previous':
@@ -1244,7 +1246,7 @@ def summary_six_lines():
         {'label': 'Nước cấp KH', 'data': customer_clean_series, 'borderColor': '#ffc107', 'fill': False},
         {'label': 'Nước thải', 'data': wastewater_series, 'borderColor': '#dc3545', 'fill': False},
         {'label': 'Hóa chất NMNS', 'data': chem_series, 'borderColor': '#6610f2', 'borderDash': [5, 5], 'fill': False},
-        {'label': 'Tổng hợp (NT+HC+BT)', 'data': total_series, 'borderColor': '#20c997', 'fill': False}
+        # {'label': 'Tổng hợp (NT+HC+BT)', 'data': total_series, 'borderColor': '#20c997', 'fill': False}
     ]
 
     return jsonify({

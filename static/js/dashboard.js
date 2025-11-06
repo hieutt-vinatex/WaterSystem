@@ -315,15 +315,35 @@ function initDashboardDatePicker() {
     dateInput.addEventListener('change', onApply);
 }
 
-async function loadSummarySixLinesChart(period = "current") {
+async function loadSummarySixLinesChart(options = {}) {
   try {
-    const params = new URLSearchParams({ period });
+    const { period = 'current', startDate, endDate } = options;
+    const params = new URLSearchParams();
+
+    if (startDate && endDate) {
+      params.set('start_date', startDate);
+      params.set('end_date', endDate);
+    } else {
+      params.set('period', period);
+    }
+
     const res = await fetch(`/api/summary-six-lines?${params.toString()}`);
     if (!res.ok) {
       console.warn("No permission or API error");
       return;
     }
     const data = await res.json();
+    const startInput = document.getElementById('summaryStartDate');
+    const endInput = document.getElementById('summaryEndDate');
+    if (startInput && endInput) {
+      if (startDate && endDate) {
+        startInput.value = startDate;
+        endInput.value = endDate;
+      } else if (data.start_date && data.end_date) {
+        startInput.value = data.start_date;
+        endInput.value = data.end_date;
+      }
+    }
     const container = document.getElementById('summarySixLinesChart');
     if (!container || typeof Highcharts === 'undefined') {
       console.warn('Highcharts container not ready');
@@ -385,19 +405,65 @@ document.addEventListener('DOMContentLoaded', function() {
   const btn = document.getElementById('toggleChartBtn');
   const wrapper = document.getElementById('summaryChartWrapper');
   const select = document.getElementById('periodSelect');
-  
+  const startInput = document.getElementById('summaryStartDate');
+  const endInput = document.getElementById('summaryEndDate');
+
   if (btn && wrapper) {
     btn.addEventListener('click', () => {
       const collapsed = wrapper.style.display === 'none';
       wrapper.style.display = collapsed ? 'block' : 'none';
       btn.innerHTML = collapsed
-        ? '<i class="fas fa-compress-alt"></i> Thu gọn'
-        : '<i class="fas fa-expand-alt"></i> Mở rộng';
+        ? '<i class="fas fa-compress-alt me-1"></i>Thu gọn'
+        : '<i class="fas fa-expand-alt me-1"></i>Mở rộng';
     });
   }
 
   if (select) {
-    select.addEventListener('change', e => loadSummarySixLinesChart(e.target.value));
+    select.addEventListener('change', e => {
+      const value = e.target.value;
+      if (value === 'custom') {
+        return;
+      }
+      if (startInput) startInput.value = '';
+      if (endInput) endInput.value = '';
+      loadSummarySixLinesChart({ period: value });
+    });
+  }
+
+  const handleDateChange = () => {
+    if (!startInput || !endInput) return;
+    const startVal = startInput.value;
+    const endVal = endInput.value;
+
+    if (!startVal && !endVal) {
+      if (select) {
+        select.value = 'current';
+        loadSummarySixLinesChart({ period: 'current' });
+      }
+      return;
+    }
+
+    if (!startVal || !endVal) {
+      return;
+    }
+
+    if (startVal > endVal) {
+      alert('Từ ngày phải nhỏ hơn hoặc bằng Đến ngày.');
+      return;
+    }
+
+    if (select) {
+      select.value = 'custom';
+    }
+    loadSummarySixLinesChart({ startDate: startVal, endDate: endVal });
+  };
+
+  if (startInput) {
+    startInput.addEventListener('change', handleDateChange);
+  }
+
+  if (endInput) {
+    endInput.addEventListener('change', handleDateChange);
   }
 
   // Chỉ gọi nếu chart tồn tại
