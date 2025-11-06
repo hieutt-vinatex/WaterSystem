@@ -317,41 +317,64 @@ function initDashboardDatePicker() {
 
 async function loadSummarySixLinesChart(period = "current") {
   try {
-    const res = await fetch(`/api/summary-six-lines?period=${period}`);
+    const params = new URLSearchParams({ period });
+    const res = await fetch(`/api/summary-six-lines?${params.toString()}`);
     if (!res.ok) {
       console.warn("No permission or API error");
       return;
     }
     const data = await res.json();
-    const ctx = document.getElementById('summarySixLinesChart').getContext('2d');
-    if (window.summaryChart) window.summaryChart.destroy();
+    const container = document.getElementById('summarySixLinesChart');
+    if (!container || typeof Highcharts === 'undefined') {
+      console.warn('Highcharts container not ready');
+      return;
+    }
+    if (window.summaryChart) {
+      window.summaryChart.destroy();
+    }
 
-    window.summaryChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: data.labels,
-        datasets: data.datasets.map(ds => ({
-          ...ds,
-          borderWidth: 2,
-          tension: 0.3,
-          pointRadius: 0
-        }))
+    const series = data.datasets.map(ds => ({
+      name: ds.label,
+      data: (ds.data || []).map(Number),
+      color: ds.borderColor,
+      dashStyle: Array.isArray(ds.borderDash) ? 'Dash' : 'Solid',
+      marker: { enabled: false },
+      lineWidth: 2
+    }));
+
+    window.summaryChart = Highcharts.chart('summarySixLinesChart', {
+      chart: {
+        type: 'spline',
+        backgroundColor: 'transparent'
       },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'bottom' },
-          title: {
-            display: true,
-            text: 'Tổng hợp sản lượng – nước sạch – thải – hóa chất',
-            font: { size: 15 }
-          }
-        },
-        interaction: { mode: 'index', intersect: false },
-        scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'm³ / kg' } }
+      title: {
+        text: 'Tổng hợp sản lượng – nước sạch – thải – hóa chất',
+        style: { fontSize: '15px' }
+      },
+      xAxis: {
+        categories: data.labels,
+        tickmarkPlacement: 'on',
+        crosshair: true
+      },
+      yAxis: {
+        min: 0,
+        title: { text: 'm³ / kg' }
+      },
+      tooltip: {
+        shared: true,
+        valueDecimals: 2
+      },
+      legend: {
+        align: 'center',
+        verticalAlign: 'bottom'
+      },
+      credits: { enabled: false },
+      plotOptions: {
+        series: {
+          animation: { duration: 500 }
         }
-      }
+      },
+      series
     });
   } catch (err) {
     console.error('Error loading summary chart:', err);
